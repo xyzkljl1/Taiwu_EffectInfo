@@ -175,10 +175,26 @@ namespace EffectInfo
         {
             if (!On)
                 return;
+            if (currentCharId != SingletonObject.getInstance<BasicGameData>().TaiwuCharId)
+            //临时
+            {
+                foreach (var pair in EffectInfoFrontend.mouseTipDisplayers)
+                {
+                    var propertyId = pair.Key;
+                    var mouseTipDisplayer = pair.Value;
+                    if (mouseTipDisplayer && mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
+                        if (originalText.ContainsKey(propertyId))
+                        {
+                            mouseTipDisplayer.PresetParam[1] = originalText[propertyId];
+                            mouseTipDisplayer.NeedRefresh = true;
+                        }
+                }
+            }
 
             Console.WriteLine("EffectInfo:Reload file\n");
             if (EffectInfoFrontend.currentCharId < 0)
                 return;
+
             //property_id到文本的映射
             var property_text = new Dictionary<int, string>();
             //读取本地文件
@@ -254,14 +270,8 @@ namespace EffectInfo
         {
             if (!On)
                 return;
-
-            if (charId != SingletonObject.getInstance<BasicGameData>().TaiwuCharId)
-                return;
-            var major_att_ele = GetPrivateField<CharacterMajorAttribute>(__instance, "_majorAttributeController");
-            if (major_att_ele is null)
-                return;
             EffectInfoFrontend.currentCharId = charId;
-            Console.WriteLine($"EffectInfo:切换到角色{0}",charId);
+            Console.WriteLine($"EffectInfo:切换到角色{0}", charId);
         }
     }
 }

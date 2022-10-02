@@ -620,7 +620,7 @@ namespace EffectInfo
                         check_value[i] += total;
                         if (ShowUseless || dirty_tag)
                         {
-                            result[i] += ToInfoAdd("属性加值", total, 1);
+                            result[i] += ToInfoAdd("属性减值", total, 1);
                             result[i] += tmp;
                         }
                     }
@@ -856,7 +856,7 @@ namespace EffectInfo
                         check_value[i] += total;
                         if (ShowUseless || dirty_tag)
                         {
-                            result[i] += ToInfoAdd("属性加值", total, 1);
+                            result[i] += ToInfoAdd("属性减值", total, 1);
                             result[i] += tmp;
                         }
 
