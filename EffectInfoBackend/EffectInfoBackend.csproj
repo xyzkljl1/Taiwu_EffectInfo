@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>G:\Steam\steamapps\common\The Scroll Of Taiwu\The Scroll of Taiwu_Data\Managed\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="GameData">
+      <HintPath>G:\Steam\steamapps\common\The Scroll Of Taiwu\Backend\GameData.dll</HintPath>
+    </Reference>
+    <Reference Include="TaiwuModdingLib">
+      <HintPath>G:\Steam\steamapps\common\The Scroll Of Taiwu\The Scroll of Taiwu_Data\Managed\TaiwuModdingLib.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>G:\Steam\steamapps\common\The Scroll Of Taiwu\The Scroll of Taiwu_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>G:\Steam\steamapps\common\The Scroll Of Taiwu\The Scroll of Taiwu_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="go.bat $(SolutionName) $(TargetPath)" />
+  </Target>
+
+</Project>
