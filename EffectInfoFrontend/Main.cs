@@ -216,24 +216,32 @@ namespace EffectInfo
                     return;
                 }
                 lastUpdate = time;
-                var lines = File.ReadAllLines(path);
-                var tmp_text = "";
-                foreach (var line in lines)
-                    if (line.StartsWith("__")) //一条属性结束
-                    {
-                        if (MyKey2PropertyValue.ContainsKey(line))
-                            property_text[MyKey2PropertyValue[line]] = tmp_text;
-                        tmp_text = "";
-                    }
-                    else if(line.Length > 0)
-                    {
-                        int level = 0;
-                        if (line[0] >= '0' && line[0] <= '9')
-                            level = Int32.Parse(line.Substring(0,1));
-                        //目前在后端已经处理，但是前端代码不需要改动
-                        if(level <= InfoLevel)
-                            tmp_text += $"{line.Substring(1)}\n";
-                    }
+                try
+                {
+                    var lines = File.ReadAllLines(path);
+                    var tmp_text = "";
+                    foreach (var line in lines)
+                        if (line.StartsWith("__")) //一条属性结束
+                        {
+                            if (MyKey2PropertyValue.ContainsKey(line))
+                                property_text[MyKey2PropertyValue[line]] = tmp_text;
+                            tmp_text = "";
+                        }
+                        else if (line.Length > 0)
+                        {
+                            int level = 0;
+                            if (line[0] >= '0' && line[0] <= '9')
+                                level = Int32.Parse(line.Substring(0, 1));
+                            //目前在后端已经处理，但是前端代码不需要改动
+                            if (level <= InfoLevel)
+                                tmp_text += $"{line.Substring(1)}\n";
+                        }
+                }
+                catch (IOException e)
+                {
+                    property_text.Clear();//读取失败可能是文件正在被写入，视作旧信息已失效直接清空
+                    return;
+                }               
                 // File.WriteAllText(path+$"{test++}.txt", $"{time}"+property_text[6]);
             }
             //修改mouseTip的文本
