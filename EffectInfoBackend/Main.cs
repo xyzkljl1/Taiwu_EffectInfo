@@ -1,4 +1,5 @@
-﻿using GameData.Domains;
+﻿using GameData.Common;
+using GameData.Domains;
 using GameData.Domains.Character;
 using GameData.Domains.Character.AvatarSystem;
 using GameData.Domains.Combat;
@@ -10,6 +11,7 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using TaiwuModdingLib.Core.Plugin;
 
 namespace EffectInfo
@@ -20,7 +22,17 @@ namespace EffectInfo
         public static bool On;
         public static bool ShowUseless;
         public static int InfoLevel = 3;
-        public static int test = 0;
+        //已经实现获取信息方法的Field
+        public static HashSet<int> MonitoredFieldIds =new HashSet<int>();
+
+        //private static ;
+        //FieldId(CharacterHelper.FieldIds)->属性信息
+        //注意此FieldId和函数内获取信息用的AffectedDataHelper.FieldIds的不同
+        private static Dictionary<int, string> Cache_FieldText = new Dictionary<int, string>();
+
+        //propertyType和AffectedDataHelper.FieldIds很多name不一致,不做自动映射
+        // private static Dictionary<int, ushort> Property2AffectedDataFieldId;
+        private static int currentCharId = -1;
         Harmony harmony;
         public override void Dispose()
         {
@@ -31,7 +43,26 @@ namespace EffectInfo
 
         public override void Initialize()
         {
+            AdaptableLog.Info("EffectInfo:Init");
             harmony = Harmony.CreateAndPatchAll(typeof(EffectInfoBackend));
+            MyAffectedDataFieldIds.Init();
+            MyFieldIds.Init();
+            MonitoredFieldIds.Add(MyFieldIds.HitValues);
+            MonitoredFieldIds.Add(MyFieldIds.AvoidValues);
+            MonitoredFieldIds.Add(MyFieldIds.Attraction);
+            MonitoredFieldIds.Add(MyFieldIds.MaxMainAttributes);
+            MonitoredFieldIds.Add(MyFieldIds.Penetrations);
+            MonitoredFieldIds.Add(MyFieldIds.PenetrationResists);
+            MonitoredFieldIds.Add(MyFieldIds.RecoveryOfStanceAndBreath);
+            MonitoredFieldIds.Add(MyFieldIds.MoveSpeed);
+            MonitoredFieldIds.Add(MyFieldIds.RecoveryOfFlaw);
+            MonitoredFieldIds.Add(MyFieldIds.CastSpeed);
+            MonitoredFieldIds.Add(MyFieldIds.RecoveryOfBlockedAcupoint);
+            MonitoredFieldIds.Add(MyFieldIds.WeaponSwitchSpeed);
+            MonitoredFieldIds.Add(MyFieldIds.AttackSpeed);
+            MonitoredFieldIds.Add(MyFieldIds.InnerRatio);
+            MonitoredFieldIds.Add(MyFieldIds.RecoveryOfQiDisorder);
+            MonitoredFieldIds.Add(MyFieldIds.RecoveryOfMainAttribute);
         }
         public override void OnModSettingUpdate()
         {
@@ -42,7 +73,6 @@ namespace EffectInfo
         }
 
         /*
-         *  fieldId不知道哪来的，并不是AffectedDataHelper.FieldIds
 			GetXXXInfo是基于游戏内GetXXX函数改写：
                 返回(3级)数值信息字符串
 				出入参dirty_tag用于标记是否有至少一项非0修正
@@ -516,19 +546,42 @@ namespace EffectInfo
                 result += ToInfoAdd("皱纹", value, 2);
             }
             {
-                var value = CallPrivateMethod<double>(avatar, "GetClothCharm", new object[] { clothingDisplayId });
+                var value = CallPrivateMethod<double>(avatar, "GetClothCharm", new object[] { (byte)clothingDisplayId });
                 result += ToInfoAdd("衣服", value, 2);
             }
             _headAsset = null;
             return result;
         }
-        unsafe public static string GetAvoidValueInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        /* 获取Field信息
+         * 命名必须严格为Get{FieldName}Info
+         * 返回包含1级信息、check value等在内的全部信息
+         */
+        unsafe public static string GetAvoidValuesInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        {
+            var propertyType = new List<ECharacterPropertyReferencedType> {
+                ECharacterPropertyReferencedType.AvoidRateStrength,
+                ECharacterPropertyReferencedType.AvoidRateTechnique,
+                ECharacterPropertyReferencedType.AvoidRateSpeed,
+                ECharacterPropertyReferencedType.AvoidRateMind,
+            };
+            var fieldId = new List<ushort> {
+                MyAffectedDataFieldIds.AvoidStrength,
+                MyAffectedDataFieldIds.AvoidTechnique,
+                MyAffectedDataFieldIds.AvoidSpeed,
+                MyAffectedDataFieldIds.AvoidMind,
+                MyAffectedDataFieldIds.AvoidCanChange,
+                MyAffectedDataFieldIds.AvoidChangeEffectPercent,
+            };
+            Config.CharacterItem template = Config.Character.Instance[character.GetTemplateId()];
+            var template_value = template.BaseAvoidValues;//此处是int下面是short
+            return GetHitAvoidValuesImp(false, "__AvoidValue", template_value,fieldId, propertyType,__instance,character);
+        }
+        unsafe public static string GetHitAvoidValuesImp(bool isHit,string save_name, HitOrAvoidInts template_value,
+            List<ushort> fieldId, List<ECharacterPropertyReferencedType> propertyType,
+            CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             //和HitValue计算仅有SpecialEffect.GetTotalPercentModifyValue的部分不同
             const int CT = 4;
-            const int PropertyTypeOffset = (short)ECharacterPropertyReferencedType.AvoidRateStrength - 0;//从0-3偏移到ECharacterPropertyReferencedType
-            const int canAddID = 47;//DomainManager.SpecialEffect.ModifyData的fieldId, 等于SpecialEffectOffset+4，但是四属性传进去同一个值
-            const int SpecialEffectOffset = 43;//从0-3偏移到GetModifyValueInfo的fieldId
 
             List<string> result = new List<string>(CT);
             List<int> check_value = new List<int> { 0, 0, 0, 0 };
@@ -539,14 +592,12 @@ namespace EffectInfo
             int charId = character.GetId();
             //基础值
             {
-                Config.CharacterItem template = Config.Character.Instance[template_id];
-                HitOrAvoidInts value = template.BaseHitValues;//此处是int下面是short
                 for (int i = 0; i < CT; i++)
-                    if (ShowUseless || template.BaseHitValues.Items[i] != 0)
-                    {
-                        result[i] += ToInfoAdd("角色加值", template.BaseHitValues.Items[i], 1);
-                        check_value[i] = template.BaseHitValues.Items[i];
-                    }
+                {
+                    if (ShowUseless || template_value.Items[i] != 0)
+                        result[i] += ToInfoAdd("角色加值", template_value.Items[i], 1);
+                    check_value[i] += template_value.Items[i];
+                }
             }
             //基础加成
             var canAdd = new List<bool>();
@@ -559,10 +610,10 @@ namespace EffectInfo
             HitOrAvoidShorts hitValuesCfg = neiliTypeCfg.HitValues;
             for (int i = 0; i < CT; i++)
             {
-                canAdd.Add(DomainManager.SpecialEffect.ModifyData(charId, -1, canAddID, true, i, 0));
-                canReduce.Add(DomainManager.SpecialEffect.ModifyData(charId, -1, canAddID, true, i, 1));
-                addEffectPercent.Add(100 + DomainManager.SpecialEffect.GetModifyValue(charId, canAddID + 1, 0, i, 0, -1, 0));
-                reduceEffectPercent.Add(100 + DomainManager.SpecialEffect.GetModifyValue(charId, canAddID + 1, 0, i, 1, -1, 0));
+                canAdd.Add(DomainManager.SpecialEffect.ModifyData(charId, -1, (ushort)fieldId[CT], true, i, 0));
+                canReduce.Add(DomainManager.SpecialEffect.ModifyData(charId, -1, (ushort)fieldId[CT], true, i, 1));
+                addEffectPercent.Add(100 + DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[CT+1] , 0, i, 0, -1, 0));
+                reduceEffectPercent.Add(100 + DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[CT+1] , 0, i, 1, -1, 0));
             }
             //属性
             {
@@ -573,10 +624,10 @@ namespace EffectInfo
                 result[1] += ToInfoAdd($"最大悟性/2", maxMainAttributes.Items[5] / 2, 1);
                 result[2] += ToInfoAdd($"最大灵敏/2", maxMainAttributes.Items[1] / 2, 1);
                 result[3] += ToInfoAdd($"最大定力/2", maxMainAttributes.Items[2] / 2, 1);
-                check_value[0] = maxMainAttributes.Items[0] / 2 + 100;
-                check_value[1] = maxMainAttributes.Items[5] / 2 + 100;
-                check_value[2] = maxMainAttributes.Items[1] / 2 + 100;
-                check_value[3] = maxMainAttributes.Items[2] / 2 + 100;
+                check_value[0] += maxMainAttributes.Items[0] / 2 + 100;
+                check_value[1] += maxMainAttributes.Items[5] / 2 + 100;
+                check_value[2] += maxMainAttributes.Items[1] / 2 + 100;
+                check_value[3] += maxMainAttributes.Items[2] / 2 + 100;
             }
             {
                 //装备，食物，技能加值
@@ -585,13 +636,12 @@ namespace EffectInfo
                     if (canAdd[i])
                     {
                         sbyte valueSumType = 1;//1代笔加值，2代表减值，0都包括
-                        ECharacterPropertyReferencedType propertyType = (ECharacterPropertyReferencedType)(PropertyTypeOffset + i);
                         dirty_tag = false;
                         var tmp = "";
                         int sum = 0;
-                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
-                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType, valueSumType);
-                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
+                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
+                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType[i], valueSumType);
+                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
                         tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
                         int total = sum * addEffectPercent[i] / 100;
                         check_value[i] += total;
@@ -606,7 +656,7 @@ namespace EffectInfo
                     if (canAdd[i])
                     {
                         sbyte valueSumType = 1;
-                        var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(SpecialEffectOffset + i), 0, -1, -1, -1, valueSumType);
+                        var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 0, -1, -1, -1, valueSumType);
                         int total = base_value * addEffectPercent[i] / 100;
 
                         dirty_tag = false;
@@ -614,7 +664,7 @@ namespace EffectInfo
                         tmp += ToInfoAdd("效果加值", total, 1);
                         check_value[i] += total;
                         tmp += ToInfoAdd("基础", base_value, 2);
-                        tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 0, -1, -1, -1, valueSumType);
+                        tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 0, -1, -1, -1, valueSumType);
                         tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
                         if (ShowUseless || dirty_tag)
                             result[i] += tmp;
@@ -623,7 +673,7 @@ namespace EffectInfo
             {//内力
                 for (int i = 0; i < CT; i++)
                     if (canAdd[i])
-                        result[i] += CustomGetNeiliAllocationInfo(ref check_value, i, character, (ECharacterPropertyReferencedType)(PropertyTypeOffset + i), true);
+                        result[i] += CustomGetNeiliAllocationInfo(ref check_value, i, character, propertyType[i], true);
             }
             //战斗难度
             if (charId != DomainManager.Taiwu.GetTaiwuCharId())
@@ -647,13 +697,12 @@ namespace EffectInfo
                     if (canAdd[i])
                     {
                         sbyte valueSumType = 2;//1代笔加值，2代表减值，0都包括
-                        ECharacterPropertyReferencedType propertyType = (ECharacterPropertyReferencedType)(PropertyTypeOffset + i);
                         dirty_tag = false;
                         var tmp = "";
                         int sum = 0;
-                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
-                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType, valueSumType);
-                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
+                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
+                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType[i], valueSumType);
+                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
                         tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
                         int total = sum * addEffectPercent[i] / 100;
                         check_value[i] += total;
@@ -668,7 +717,7 @@ namespace EffectInfo
                     if (canAdd[i])
                     {
                         sbyte valueSumType = 2;
-                        var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(SpecialEffectOffset + i), 0, -1, -1, -1, valueSumType);
+                        var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 0, -1, -1, -1, valueSumType);
                         var total = base_value * reduceEffectPercent[i] / 100;
 
                         dirty_tag = false;
@@ -676,7 +725,7 @@ namespace EffectInfo
                         tmp += ToInfoAdd("效果减值", total, 1);
                         check_value[i] += total;
                         tmp += ToInfoAdd("基础", base_value, 2);
-                        tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 0, -1, -1, -1, valueSumType);
+                        tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 0, -1, -1, -1, valueSumType);
                         tmp += ToInfoPercent("乘算", reduceEffectPercent[i], 2);
                         if (ShowUseless || dirty_tag)
                             result[i] += tmp;
@@ -685,37 +734,36 @@ namespace EffectInfo
             //内力减值
             for (int i = 0; i < CT; i++)
                 if (canReduce[i])
-                    result[i] += CustomGetNeiliAllocationInfo(ref check_value, i, character, (ECharacterPropertyReferencedType)(PropertyTypeOffset + i), false);
+                    result[i] += CustomGetNeiliAllocationInfo(ref check_value, i, character, propertyType[i], false);
 
             //最终倍率
             for (sbyte i = 0; i < CT; i = (sbyte)(i + 1))
             {
                 int percent = 100;
-                ECharacterPropertyReferencedType propertyType3 = (ECharacterPropertyReferencedType)(PropertyTypeOffset + i);
                 string tmp = "";
                 dirty_tag = false;
                 if (canAdd[i])
                 {
                     sbyte valueSumType = 1;
-                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType3, valueSumType });
+                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
                     //modifyType是1获得乘算加值
-                    var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(SpecialEffectOffset + i), 1, -1, -1, -1, valueSumType);
+                    var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
                     tmp += ToInfoAdd("特性", feture_value, 2);
-                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType3, valueSumType);
+                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], valueSumType);
                     tmp += ToInfoAdd("效果", effect_value, 2);
-                    tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 1, -1, -1, -1, valueSumType);
+                    tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
                     tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
                     percent += (feture_value + effect_value) * addEffectPercent[i] / 100;
                 }
                 if (canReduce[i])
                 {
                     sbyte valueSumType = 2;
-                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType3, valueSumType });
-                    var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(SpecialEffectOffset + i), 1, -1, -1, -1, valueSumType);
+                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
+                    var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
                     tmp += ToInfoAdd("特性", feture_value, 2);
-                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType3, valueSumType);
+                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], valueSumType);
                     tmp += ToInfoAdd("效果", effect_value, 2);
-                    tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 1, -1, -1, -1, valueSumType);
+                    tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
                     tmp += ToInfoPercent("乘算", reduceEffectPercent[i], 2);
                     percent += (feture_value + effect_value) * reduceEffectPercent[i] / 100;
                 }
@@ -727,23 +775,24 @@ namespace EffectInfo
                 check_value[i] = check_value[i] * percent / 100;
             }
             //蜜汁倍率
-            for (sbyte i = 0; i < 4; i = (sbyte)(i + 1))
-            {
-                ValueTuple<int, int> totalPercent = DomainManager.SpecialEffect.GetTotalPercentModifyValue(charId, -1, (ushort)(SpecialEffectOffset + i));
-                totalPercent.Item1 = (canAdd[i] ? (totalPercent.Item1 * addEffectPercent[i] / 100) : 0);
-                totalPercent.Item2 = (canReduce[i] ? (totalPercent.Item2 * reduceEffectPercent[i] / 100) : 0);
-                var value = (100 + totalPercent.Item1 + totalPercent.Item2);
+            if(!isHit)
+                for (sbyte i = 0; i < 4; i = (sbyte)(i + 1))
+                {
+                    ValueTuple<int, int> totalPercent = DomainManager.SpecialEffect.GetTotalPercentModifyValue(charId, -1, (ushort)fieldId[i]);
+                    totalPercent.Item1 = (canAdd[i] ? (totalPercent.Item1 * addEffectPercent[i] / 100) : 0);
+                    totalPercent.Item2 = (canReduce[i] ? (totalPercent.Item2 * reduceEffectPercent[i] / 100) : 0);
+                    var value = (100 + totalPercent.Item1 + totalPercent.Item2);
 
-                var tmp = "";
-                dirty_tag = false;
-                check_value[i] = check_value[i] * value / 100;
-                tmp += ToInfoPercent("效果倍率", value, 1);
-                tmp += ToInfoAdd("基础", 100, 2);
-                tmp += ToInfoAdd("最高加值", totalPercent.Item1, 2);
-                tmp += ToInfoAdd("最低减值", totalPercent.Item2, 2);
-                if (ShowUseless || dirty_tag)
-                    result[i] += tmp;
-            }
+                    var tmp = "";
+                    dirty_tag = false;
+                    check_value[i] = check_value[i] * value / 100;
+                    tmp += ToInfoPercent("效果倍率", value, 1);
+                    tmp += ToInfoAdd("基础", 100, 2);
+                    tmp += ToInfoAdd("最高加值", totalPercent.Item1, 2);
+                    tmp += ToInfoAdd("最低减值", totalPercent.Item2, 2);
+                    if (ShowUseless || dirty_tag)
+                        result[i] += tmp;
+                }
             for (int i = 0; i < CT; i++)
             {
                 if (ShowUseless || check_value[i] < GlobalConfig.Instance.MinValueOfAttackAndDefenseAttributes)
@@ -755,231 +804,30 @@ namespace EffectInfo
             {
                 string tmp = "";
                 for (int i = 0; i < CT; ++i)
-                    tmp += $"\n{result[i]}\n{ToInfoAdd("总和校验值", check_value[i], 1)}__AvoidValue{i}\n";
+                    tmp += $"\n{result[i]}\n{ToInfoAdd("总和校验值", check_value[i], 1)}{save_name}{i}\n";
                 return tmp;
             }
-
         }
-        unsafe public static string GetHitValueInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetHitValuesInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
-            const int CT = 4;
-            const int PropertyTypeOffset = (short)ECharacterPropertyReferencedType.HitRateStrength - 0;//从0-3偏移到ECharacterPropertyReferencedType,即propertyId
-            const int canAddID = 41;//DomainManager.SpecialEffect.ModifyData的fieldId, 等于SpecialEffectOffset+4，但是四属性传进去同一个值
-            const int SpecialEffectOffset = 37;//从0-3偏移到GetModifyValueInfo的fieldId
-
-            List<string> result = new List<string>(CT);
-            List<int> check_value = new List<int> { 0, 0, 0, 0 };
-            bool dirty_tag = false;
-            for (int i = 0; i < CT; ++i)
-                result.Add("");
-            short template_id = character.GetTemplateId();
-            int charId = character.GetId();
-            //基础值
-            {
-                Config.CharacterItem template = Config.Character.Instance[template_id];
-                HitOrAvoidInts value = template.BaseHitValues;//此处是int下面是short
-                for (int i = 0; i < CT; i++)
-                    if (ShowUseless || template.BaseHitValues.Items[i] != 0)
-                    {
-                        result[i] += ToInfoAdd("角色加值", template.BaseHitValues.Items[i], 1);
-                        check_value[i] = template.BaseHitValues.Items[i];
-                    }
-            }
-            //基础加成
-            var canAdd = new List<bool>();
-            var canReduce = new List<bool>();
-            var addEffectPercent = new List<int>();
-            var reduceEffectPercent = new List<int>();
-            NeiliAllocation allocations = character.GetNeiliAllocation();
-            sbyte neiliType = character.GetNeiliType();
-            Config.NeiliTypeItem neiliTypeCfg = Config.NeiliType.Instance[neiliType];
-            HitOrAvoidShorts hitValuesCfg = neiliTypeCfg.HitValues;
-            for (int i = 0; i < CT; i++)
-            {
-                canAdd.Add(DomainManager.SpecialEffect.ModifyData(charId, -1, canAddID, true, i, 0));
-                canReduce.Add(DomainManager.SpecialEffect.ModifyData(charId, -1, canAddID, true, i, 1));
-                addEffectPercent.Add(100 + DomainManager.SpecialEffect.GetModifyValue(charId, canAddID + 1, 0, i, 0, -1, 0));
-                reduceEffectPercent.Add(100 + DomainManager.SpecialEffect.GetModifyValue(charId, canAddID + 1, 0, i, 1, -1, 0));
-            }
-            //属性
-            {
-                MainAttributes maxMainAttributes = character.GetMaxMainAttributes();
-                for (int i = 0; i < CT; i++)
-                    result[i] += ToInfoAdd("基础", 100, 1);
-                result[0] += ToInfoAdd($"最大膂力/2", maxMainAttributes.Items[0] / 2, 1);
-                result[1] += ToInfoAdd($"最大悟性/2", maxMainAttributes.Items[5] / 2, 1);
-                result[2] += ToInfoAdd($"最大灵敏/2", maxMainAttributes.Items[1] / 2, 1);
-                result[3] += ToInfoAdd($"最大定力/2", maxMainAttributes.Items[2] / 2, 1);
-                check_value[0] = maxMainAttributes.Items[0] / 2 + 100;
-                check_value[1] = maxMainAttributes.Items[5] / 2 + 100;
-                check_value[2] = maxMainAttributes.Items[1] / 2 + 100;
-                check_value[3] = maxMainAttributes.Items[2] / 2 + 100;
-            }
-            {
-                //装备，食物，技能加值
-                EatingItems eatingItems = character.GetEatingItems();
-                for (int i = 0; i < CT; i++)
-                    if (canAdd[i])
-                    {
-                        sbyte valueSumType = 1;//1代笔加值，2代表减值，0都包括
-                        ECharacterPropertyReferencedType propertyType = (ECharacterPropertyReferencedType)(PropertyTypeOffset + i);
-                        dirty_tag = false;
-                        var tmp = "";
-                        int sum = 0;
-                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
-                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType, valueSumType);
-                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
-                        tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                        int total = sum * addEffectPercent[i] / 100;
-                        check_value[i] += total;
-                        if (ShowUseless || dirty_tag)
-                        {
-                            result[i] += ToInfoAdd("属性加值", total, 1);
-                            result[i] += tmp;
-                        }
-                    }
-                //特殊效果加值
-                for (sbyte i = 0; i < CT; i = (sbyte)(i + 1))
-                    if (canAdd[i])
-                    {
-                        sbyte valueSumType = 1;
-                        var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(SpecialEffectOffset + i), 0, -1, -1, -1, valueSumType);
-                        int total = base_value * addEffectPercent[i] / 100;
-
-                        dirty_tag = false;
-                        var tmp = "";
-                        tmp += ToInfoAdd("效果加值", total, 1);
-                        check_value[i] += total;
-                        tmp += ToInfoAdd("基础", base_value, 2);
-                        tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(37 + i), 0, -1, -1, -1, valueSumType);
-                        tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                        if (ShowUseless || dirty_tag)
-                            result[i] += tmp;
-                    }
-            }
-            {//内力
-                for (int i = 0; i < CT; i++)
-                    if(canAdd[i])
-                        result[i]+=CustomGetNeiliAllocationInfo(ref check_value,i, character, (ECharacterPropertyReferencedType)(PropertyTypeOffset + i),true);
-            }
-            //战斗难度
-            if (charId != DomainManager.Taiwu.GetTaiwuCharId())
-            {
-                byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
-                short factor = Config.CombatDifficulty.Instance[combatDifficulty].HitValues;
-                for (int i = 0; i < CT; i++)
-                    if (EffectInfoBackend.ShowUseless || factor != 100)
-                    {
-                        result[i] += ToInfoPercent("战斗难度", factor, 1);
-                        check_value[i] = check_value[i] * factor / 100;
-                    }
-            }else if (ShowUseless)
-                for (int i = 0; i < CT; i++)
-                    result[i] += ToInfo("战斗难度", "-", 1);
-            {
-                //装备，食物，技能减值
-                EatingItems eatingItems = character.GetEatingItems();
-                for (int i = 0; i < CT; i++)
-                    if (canAdd[i])
-                    {
-                        sbyte valueSumType = 2;
-                        ECharacterPropertyReferencedType propertyType = (ECharacterPropertyReferencedType)(PropertyTypeOffset + i);
-                        dirty_tag = false;
-                        var tmp = "";
-                        int sum = 0;
-                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
-                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType, valueSumType);
-                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType, valueSumType);
-                        tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                        int total = sum * addEffectPercent[i] / 100;
-                        check_value[i] += total;
-                        if (ShowUseless || dirty_tag)
-                        {
-                            result[i] += ToInfoAdd("属性减值", total, 1);
-                            result[i] += tmp;
-                        }
-
-                    }
-                //特殊效果减值
-                for (sbyte i = 0; i < CT; i = (sbyte)(i + 1))
-                    if (canAdd[i])
-                    {
-                        sbyte valueSumType = 2;
-                        var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(37 + i), 0, -1, -1, -1, valueSumType);
-                        var total = base_value * reduceEffectPercent[i] / 100;
-
-
-                        dirty_tag = false;
-                        var tmp = "";
-                        tmp += ToInfoAdd("效果减值", total, 1);
-                        check_value[i] += total;
-                        tmp += ToInfoAdd("基础", base_value, 2);
-                        tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 0, -1, -1, -1, valueSumType);
-                        tmp += ToInfoPercent("乘算", reduceEffectPercent[i], 2);
-                        if (ShowUseless || dirty_tag)
-                            result[i] += tmp;
-                    }
-            }
-            //内力减值
-            for (int i = 0; i < CT; i++)
-                if (canReduce[i])
-                    result[i] += CustomGetNeiliAllocationInfo(ref check_value, i, character, (ECharacterPropertyReferencedType)(PropertyTypeOffset + i), false);
-
-            //最终倍率
-            for (sbyte i = 0; i < CT; i = (sbyte)(i + 1))
-            {
-                int percent = 100;
-                ECharacterPropertyReferencedType propertyType3 = (ECharacterPropertyReferencedType)(PropertyTypeOffset + i);
-                string tmp = "";
-                dirty_tag = false;
-                if (canAdd[i])
-                {
-                    sbyte valueSumType = 1;
-                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType3, valueSumType });
-                    //modifyType是1获得乘算加值
-                    var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(37 + i), 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoAdd("特性", feture_value, 2);
-                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType3, valueSumType);
-                    tmp += ToInfoAdd("效果", effect_value, 2);
-                    tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                    percent += (feture_value + effect_value) * addEffectPercent[i] / 100;
-                }
-                if (canReduce[i])
-                {
-                    sbyte valueSumType = 2;
-                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType3, valueSumType });
-                    var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)(37 + i), 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoAdd("特性", feture_value, 2);
-                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType3, valueSumType);
-                    tmp += ToInfoAdd("效果", effect_value, 2);
-                    tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)(SpecialEffectOffset + i), 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoPercent("乘算", reduceEffectPercent[i], 2);
-                    percent += (feture_value + effect_value) * reduceEffectPercent[i] / 100;
-                }
-                if (ShowUseless || dirty_tag)
-                {
-                    result[i] += ToInfoPercent("整体乘算", percent, 1);
-                    result[i] += tmp;
-                }
-                check_value[i] = check_value[i] * percent / 100;
-            }
-            for (int i = 0; i < CT; i++)
-            {
-                if (ShowUseless || check_value[i] < GlobalConfig.Instance.MinValueOfAttackAndDefenseAttributes)
-                    result[i] += ToInfo("下限", $">={GlobalConfig.Instance.MinValueOfAttackAndDefenseAttributes}", 1);
-                if (check_value[i] < GlobalConfig.Instance.MinValueOfAttackAndDefenseAttributes)
-                    check_value[i] = GlobalConfig.Instance.MinValueOfAttackAndDefenseAttributes;
-            }
-            //返回
-            {
-                string tmp = "";
-                for (int i = 0; i < CT; ++i)
-                    tmp += $"\n{result[i]}\n{ToInfoAdd("总和校验值", check_value[i], 1)}__HitValue{i}\n";
-                return tmp;
-            }
+            var propertyType = new List<ECharacterPropertyReferencedType> {
+                ECharacterPropertyReferencedType.HitRateStrength,
+                ECharacterPropertyReferencedType.HitRateTechnique,
+                ECharacterPropertyReferencedType.HitRateSpeed,
+                ECharacterPropertyReferencedType.HitRateMind,
+            };
+            var fieldId = new List<ushort> {
+                MyAffectedDataFieldIds.HitStrength,
+                MyAffectedDataFieldIds.HitTechnique,
+                MyAffectedDataFieldIds.HitSpeed,
+                MyAffectedDataFieldIds.HitMind,
+                MyAffectedDataFieldIds.HitCanChange,
+                MyAffectedDataFieldIds.HitChangeEffectPercent,
+            };
+            Config.CharacterItem template = Config.Character.Instance[character.GetTemplateId()];
+            var template_value = template.BaseHitValues;//此处是int下面是short
+            return GetHitAvoidValuesImp(true,"__HitValue", template_value, fieldId, propertyType, __instance, character);
         }
-
         unsafe public static string GetAttractionInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             int check_value;
@@ -1007,7 +855,7 @@ namespace EffectInfo
                 {
                     short clothingDisplayId = character.GetClothingDisplayId();
                     //正式版这里clothingDisplayId转成byte明显是bug，而测试版修复了
-                    check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, clothingDisplayId);
+                    check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, (byte)clothingDisplayId);
                     if (check_value != 0 || ShowUseless)
                     {
                         result += ToInfoAdd("外观", check_value, 1);
@@ -1062,6 +910,7 @@ namespace EffectInfo
             var result = new List<string> { "", "" };
             var check_value = new List<int> { 0, 0 };
             var propertyType = new List<ECharacterPropertyReferencedType> { ECharacterPropertyReferencedType.RecoveryOfStance, ECharacterPropertyReferencedType.RecoveryOfBreath };
+            var fieldId = new List<ushort> { MyAffectedDataFieldIds.RecoveryOfStance,MyAffectedDataFieldIds.RecoveryOfBreath};
             bool dirty_tag = false;
 
             int charId = character.GetId();
@@ -1098,10 +947,9 @@ namespace EffectInfo
                         string tmp = "";
                         int total = 0;
                         dirty_tag = false;
-                        ushort fieldId = (ushort)(ECharacterPropertyReferencedType.RecoveryOfBreath == propertyType[i] ? 14 : 13);
                         tmp += PackGetCommonPropertyBonusInfo(ref total, ref dirty_tag, character, propertyType[i], valueSumType);
                         tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref total, ref dirty_tag, character, propertyType[i], valueSumType);
-                        tmp += PackGetModifyValueInfo(ref total, ref dirty_tag, charId, fieldId, 0, -1, -1, -1, valueSumType);
+                        tmp += PackGetModifyValueInfo(ref total, ref dirty_tag, charId, fieldId[i], 0, -1, -1, -1, valueSumType);
                         check_value[i] += (short)total;
                         if (ShowUseless || dirty_tag)
                         {
@@ -1136,10 +984,9 @@ namespace EffectInfo
                         string tmp = "";
                         int total = 0;
                         dirty_tag = false;
-                        ushort fieldId = (ushort)(ECharacterPropertyReferencedType.RecoveryOfBreath == propertyType[i] ? 14 : 13);
                         tmp += PackGetCommonPropertyBonusInfo(ref total, ref dirty_tag, character, propertyType[i], valueSumType);
                         tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref total, ref dirty_tag, character, propertyType[i], valueSumType);
-                        tmp += PackGetModifyValueInfo(ref total, ref dirty_tag, charId, fieldId, 0, -1, -1, -1, valueSumType);
+                        tmp += PackGetModifyValueInfo(ref total, ref dirty_tag, charId, fieldId[i], 0, -1, -1, -1, valueSumType);
                         check_value[i] += total;
                         if (ShowUseless || dirty_tag)
                         {
@@ -1163,13 +1010,12 @@ namespace EffectInfo
                 }
                 for (int i = 0; i < CT; i++)
                 {
-                    ushort fieldId = (ushort)(ECharacterPropertyReferencedType.RecoveryOfBreath == propertyType[i] ? 14 : 13);
                     {
                         var tmp = "";
                         dirty_tag = false;
                         int value = 100;
                         tmp += ToInfoPercent("基础", 100, 2);
-                        tmp += PackGetModifyValueInfo(ref value, ref dirty_tag, charId, fieldId, (sbyte)1, -1, -1, -1, (sbyte)0);
+                        tmp += PackGetModifyValueInfo(ref value, ref dirty_tag, charId, fieldId[i], (sbyte)1, -1, -1, -1, (sbyte)0);
                         check_value[i] = (check_value[i] * value / 100);
                         if (ShowUseless || dirty_tag)
                         {
@@ -1181,8 +1027,8 @@ namespace EffectInfo
                         var tmp = "";
                         dirty_tag = false;
                         int value = 100;
-                        ValueTuple<int, int> totalPercent = DomainManager.SpecialEffect.GetTotalPercentModifyValue(charId, -1, fieldId);
-                        var tmp_pair = GetTotalPercentModifyValueInfo(ref dirty_tag, charId, -1, fieldId);
+                        ValueTuple<int, int> totalPercent = DomainManager.SpecialEffect.GetTotalPercentModifyValue(charId, -1, fieldId[i]);
+                        var tmp_pair = GetTotalPercentModifyValueInfo(ref dirty_tag, charId, -1, fieldId[i]);
                         value += totalPercent.Item1 + totalPercent.Item2;
                         tmp += ToInfoPercent("效果倍率", value, 1);
                         tmp += ToInfoAdd("基础", 100, 2);
@@ -1209,7 +1055,7 @@ namespace EffectInfo
             return $"\n{result[Outter]}\n{ToInfoAdd("总和校验值", check_value[Outter], 1)}__RecoveryOfStance\n"
                 + $"\n{result[Inner]}\n{ToInfoAdd("总和校验值", check_value[Inner], 1)}__RecoveryOfBreath\n";
         }
-        unsafe public static string GetMaxMainAttributeInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetMaxMainAttributesInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             const int CT = 6;
             var result = new List<string> { "", "","","","","" };
@@ -1222,7 +1068,14 @@ namespace EffectInfo
                 ECharacterPropertyReferencedType.Energy,
                 ECharacterPropertyReferencedType.Intelligence,
             };
-            const int FieldIdOffset = 1;//从idx偏移到fieldId
+            var fieldId = new List<ushort> {
+                MyAffectedDataFieldIds.MaxStrength,
+                MyAffectedDataFieldIds.MaxDexterity,
+                MyAffectedDataFieldIds.MaxConcentration,
+                MyAffectedDataFieldIds.MaxVitality,
+                MyAffectedDataFieldIds.MaxEnergy,
+                MyAffectedDataFieldIds.MaxIntelligence
+            };
             bool dirty_tag = false;
 
             MainAttributes baseMainAttributes = character.GetBaseMainAttributes();
@@ -1234,12 +1087,11 @@ namespace EffectInfo
             for (int i = 0; i < CT; i++)
             {
                 sbyte valueSumType = 0;
-                ushort fieldId = (ushort)(FieldIdOffset + i);
                 int sum = 0;
                 dirty_tag = false;
                 var tmp = "";
                 tmp += PackGetCommonPropertyBonusInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
-                tmp += PackGetModifyValueInfo(ref sum, ref dirty_tag, character.GetId(), fieldId, 0, -1, -1, -1, valueSumType);
+                tmp += PackGetModifyValueInfo(ref sum, ref dirty_tag, character.GetId(), fieldId[i], 0, -1, -1, -1, valueSumType);
                 check_value[i] += sum;
                 if (ShowUseless||dirty_tag)
                 {
@@ -1308,12 +1160,13 @@ namespace EffectInfo
         unsafe public static string GetPenetrationsInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = new List<ECharacterPropertyReferencedType> { ECharacterPropertyReferencedType.PenetrateOfOuter, ECharacterPropertyReferencedType.PenetrateOfInner };
-            var fieldId = new List<ushort> { 49, 50 };
+            var fieldId = new List<ushort> { MyAffectedDataFieldIds.PenetrateOuter, MyAffectedDataFieldIds.PenetrateInner };
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].Penetrations;
-            return GetPenetrationsOrResistsInfoImplement("__Penetration", factor,fieldId,propertyType,__instance,character);
+            OuterAndInnerInts template_value = Config.Character.Instance[character.GetTemplateId()].BasePenetrations;
+            return GetPenetrationsOrResistsInfoImplement(template_value,"__Penetration", factor,fieldId,propertyType,__instance,character);
         }
-        unsafe public static string GetPenetrationsOrResistsInfoImplement(string save_key,short difficult_factor, List<ushort> fieldId, List<ECharacterPropertyReferencedType> propertyType, CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetPenetrationsOrResistsInfoImplement(OuterAndInnerInts template,string save_key,short difficult_factor, List<ushort> fieldId, List<ECharacterPropertyReferencedType> propertyType, CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             //破体破气
             const int Inner = 1;
@@ -1325,9 +1178,14 @@ namespace EffectInfo
             int charId = character.GetId();
             MainAttributes maxMainAttributes = character.GetMaxMainAttributes();
 
+            check_value[Outter] += template.Outer;
+            result[Outter] += ToInfoAdd("角色", template.Outer, 1);
+            check_value[Inner] += template.Inner;
+            result[Inner] += ToInfoAdd("角色", template.Inner, 1);
+
             for (int i = 0; i < CT; i++)
             {
-                check_value[i] = 100;
+                check_value[i] += 100;
                 result[i] += ToInfoAdd("基础", 100, 1);
             }
             check_value[Outter] += maxMainAttributes.Items[3] / 2;//Vitality
@@ -1431,15 +1289,16 @@ namespace EffectInfo
         {
             //和破体破气完全一致
             var propertyType = new List<ECharacterPropertyReferencedType> { ECharacterPropertyReferencedType.PenetrateResistOfOuter, ECharacterPropertyReferencedType.PenetrateResistOfInner };
-            var fieldId = new List<ushort> { 51, 52 };
+            var fieldId = new List<ushort> { MyAffectedDataFieldIds.PenetrateResistOuter, MyAffectedDataFieldIds.PenetrateResistInner };
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].PenetrationResists;
-            return GetPenetrationsOrResistsInfoImplement("__PenetrationResist", factor, fieldId, propertyType, __instance, character);
+            OuterAndInnerInts template_value = Config.Character.Instance[character.GetTemplateId()].BasePenetrations;
+            return GetPenetrationsOrResistsInfoImplement(template_value,"__PenetrationResist", factor, fieldId, propertyType, __instance, character);
         }
         unsafe public static string GetRecoveryOfFlawInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.RecoveryOfFlaw;
-            ushort fieldId = 16;
+            ushort fieldId = MyAffectedDataFieldIds.RecoveryOfFlaw;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].RecoveryOfFlaw;
             return GetSecondaryAttributeInfoImplement("__RecoveryOfFlaw", factor, fieldId, propertyType, true, true, __instance, character);
@@ -1641,7 +1500,7 @@ namespace EffectInfo
         unsafe public static string GetMoveSpeedInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.MoveSpeed;
-            ushort fieldId = 15;
+            ushort fieldId = MyAffectedDataFieldIds.MoveSpeed;
             bool canAdd = DomainManager.SpecialEffect.ModifyData(character.GetId(), -1, 60, true, 0);
             bool canReduce = DomainManager.SpecialEffect.ModifyData(character.GetId(), -1, 60, true, 1);
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
@@ -1651,53 +1510,53 @@ namespace EffectInfo
         unsafe public static string GetCastSpeedInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.CastSpeed;
-            ushort fieldId = 17;
+            ushort fieldId = MyAffectedDataFieldIds.CastSpeed;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].CastSpeed;
             return GetSecondaryAttributeInfoImplement("__CastSpeed", factor, fieldId, propertyType, true, true, __instance, character);
         }
-        unsafe public static string GetRecoveryOfBlockedAcupoint(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetRecoveryOfBlockedAcupointInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.RecoveryOfBlockedAcupoint;
-            ushort fieldId = 18;
+            ushort fieldId = MyAffectedDataFieldIds.RecoveryOfBlockedAcupoint;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].RecoveryOfBlockedAcupoint;
             return GetSecondaryAttributeInfoImplement("__RecoveryOfBlockedAcupoint", factor, fieldId, propertyType, true, true, __instance, character);
         }
-        unsafe public static string GetWeaponSwitchSpeed(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetWeaponSwitchSpeedInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.WeaponSwitchSpeed;
-            ushort fieldId = 19;
+            ushort fieldId = MyAffectedDataFieldIds.WeaponSwitchSpeed;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].WeaponSwitchSpeed;
             return GetSecondaryAttributeInfoImplement("__WeaponSwitchSpeed", factor, fieldId, propertyType, true, true, __instance, character);
         }
-        unsafe public static string GetAttackSpeed(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetAttackSpeedInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.AttackSpeed;
-            ushort fieldId = 20;
+            ushort fieldId = MyAffectedDataFieldIds.AttackSpeed;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].AttackSpeed;
             return GetSecondaryAttributeInfoImplement("__AttackSpeed", factor, fieldId, propertyType, true, true, __instance, character);
         }
-        unsafe public static string GetInnerRatio(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetInnerRatioInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.InnerRatio;
-            ushort fieldId = 21;
+            ushort fieldId = MyAffectedDataFieldIds.InnerRatio;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].InnerRatio;
             return GetSecondaryAttributeInfoImplement("__InnerRatio", factor, fieldId, propertyType, true, true, __instance, character);
         }
-        unsafe public static string GetRecoveryOfQiDisorder(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetRecoveryOfQiDisorderInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var propertyType = ECharacterPropertyReferencedType.RecoveryOfQiDisorder;
-            ushort fieldId = 22;
+            ushort fieldId = MyAffectedDataFieldIds.RecoveryOfQiDisorder;
             byte combatDifficulty = DomainManager.World.GetCombatDifficulty();
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].RecoveryOfQiDisorder;
             return GetSecondaryAttributeInfoImplement("__RecoveryOfQiDisorder", factor, fieldId, propertyType, true, true, __instance, character);
         }
 
-        unsafe public static string GetRecoveryMainAttributeInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        unsafe public static string GetRecoveryOfMainAttributeInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
             var result = new List<string> { "", "", "", "", "", "" };
             var check_value = new List<int> { 0, 0, 0, 0, 0, 0 };
@@ -1720,48 +1579,87 @@ namespace EffectInfo
                 return tmp;
             }
         }
+        /*注入*/
+        public static void SaveInfo()
+        {
+            var dir = System.IO.Directory.GetCurrentDirectory();
+            var path = String.Format("{0}\\..\\Mod\\EffectInfo\\Plugins\\Cache_GetCharacterAttribute.txt", dir);
+            AdaptableLog.Info(String.Format("更新角色数据 {0}到{1}", currentCharId, path));
+            var tmp = $"{currentCharId}\n";
+            foreach (var pair in Cache_FieldText)
+                tmp += pair.Value;
+            File.WriteAllText(path, tmp);
+        }
         //GetEquipmentCompareData和GetCharacterAttributeDisplayData根本没有卵用,无论查看谁的信息都调用GetGroupCharDisplayDataList
         //打开属性界面时调用GetGroupCharDisplayDataList，但是分配内力等操作只会触发CheckModified不会重新调用GetGroupCharDisplayDataList
-        //修改属性一定会触发CheckModified，subId0是人物Id，subId1是？？Id（和DataStatesOffset用的Id一致)
-        //CheckModified触发很频繁，所以仍然选择注入GetGroupCharDisplayDataList,TODO：改成前端主动调用刷新
+        //修改属性一定会触发CheckModified，subId0是人物Id，subId1是fieldId
         [HarmonyPrefix,
         HarmonyPatch(typeof(CharacterDomain),
               "GetGroupCharDisplayDataList")]
         unsafe public static void GetGroupCharDisplayDataListPrePatch(
            CharacterDomain __instance, List<int> charIdList)
         {
-            var dir = System.IO.Directory.GetCurrentDirectory();
-            if (charIdList.Count < 1)
+            if (charIdList.Count != 1)
                 return;
-            foreach (var charId in charIdList)
-                if (charId == DomainManager.Taiwu.GetTaiwuCharId())
+            if (charIdList[0] < 0)
+                return;
+            Character character = __instance.GetElement_Objects(charIdList[0]);
+            if (character==null)
+                return;
+            currentCharId=charIdList[0];
+            //更新所有monitoredfield
+            foreach (var fieldId in MonitoredFieldIds)
+            {
+                Type type = typeof(EffectInfoBackend);
+                MethodInfo method_info = type.GetMethod($"Get{MyFieldIds.FieldId2FieldName[fieldId]}Info", System.Reflection.BindingFlags.Static| BindingFlags.Public);
+                if(method_info==null)
                 {
-                    var path = String.Format("{0}\\..\\Mod\\EffectInfo\\Plugins\\Cache_GetCharacterAttribute_{1}.txt", dir, charId);
-                    Character character = __instance.GetElement_Objects(charId);
-                    var char_name = character.GetFullName();
-                    AdaptableLog.Info(String.Format("更新角色数据 {0}-{1}到{2}", charId, char_name, path));
-
-                    string info = "";
-                    info += GetHitValueInfo(__instance, character);
-                    info += GetAvoidValueInfo(__instance, character);
-                    info += GetAttractionInfo(__instance, character);
-                    info += GetMaxMainAttributeInfo(__instance, character);
-                    info += GetPenetrationsInfo(__instance, character);
-                    info += GetPenetrationResistsInfo(__instance, character);
-                    info += GetRecoveryOfStanceAndBreathInfo(__instance, character);
-
-                    info += GetMoveSpeedInfo(__instance, character);
-                    info += GetRecoveryOfFlawInfo(__instance, character);
-                    info += GetCastSpeedInfo(__instance, character);
-                    info += GetRecoveryOfBlockedAcupoint(__instance, character);
-                    info += GetWeaponSwitchSpeed(__instance, character);
-                    info += GetAttackSpeed(__instance, character);
-                    info += GetInnerRatio(__instance, character);
-                    info += GetRecoveryOfQiDisorder(__instance, character);
-                    info += GetRecoveryMainAttributeInfo(__instance,character);
-                    File.WriteAllText(path, info);
-                    AdaptableLog.Info("EffectInfo:Done");
+                    AdaptableLog.Info($"Effect Info:Can't Find Get{MyFieldIds.FieldId2FieldName[fieldId]}Info");
+                    continue;
                 }
+                Cache_FieldText[fieldId] = (string)method_info.Invoke(null, new object[] { __instance, character });
+            }
+            SaveInfo();
         }
+        //每当可能有属性改变，都会触发这个函数
+        [HarmonyPrefix,HarmonyPatch(typeof(CharacterDomain),"CheckModified_Objects")]
+        unsafe public static void OnCharacterDataChangePatch(CharacterDomain __instance,int objectId, ushort fieldId, RawDataPool dataPool)
+        {
+            if (!On)
+                return;
+            if (objectId != currentCharId)
+                return;
+            Character character;
+            var characters = GetPrivateValue<Dictionary<int, Character>>(__instance, "_objects");
+            if (!characters.TryGetValue(objectId, out character))
+                return ;
+            var _dataStatesObjects = GetPrivateValue<ObjectCollectionDataStates>(__instance, "_dataStatesObjects");
+            //由于更改CharaterId时立刻就会刷新所有field，所以这里可以使用跟CharacterDomain一样的逻辑判断是否要更新
+            if (!_dataStatesObjects.IsModified(character.DataStatesOffset, fieldId))
+                return;
+            var field_name= MyFieldIds.FieldId2FieldName[fieldId];
+            int _field_id = (int)fieldId;
+
+            bool need_save = false;
+            //非自定义Field调用$"Get{field_name}Info"更新信息，并记录到Cache中，并写入本地文件
+            var char_name = character.GetFullName();
+            if (MonitoredFieldIds.Contains(_field_id))
+            {
+                Type type = typeof(EffectInfoBackend);
+                MethodInfo method_info = type.GetMethod($"Get{field_name}Info", System.Reflection.BindingFlags.Static | BindingFlags.Public);
+                Cache_FieldText[_field_id] =(string)method_info.Invoke(null, new object[] { __instance, character });
+                need_save= true;
+            }
+            //另外判断自定义Field是否要更新
+            if (_field_id==MyFieldIds.CurrAge||_field_id==MyFieldIds.MaxMainAttributes)
+            {
+                Cache_FieldText[_field_id]=GetRecoveryOfMainAttributeInfo(__instance, character);
+                need_save = true;
+            }
+            //保存到文件
+            if(need_save)
+                SaveInfo();
+        }
+
     }
 }

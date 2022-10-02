@@ -214,37 +214,17 @@ namespace EffectInfo
         {
             if (!On)
                 return;
-            if (currentCharId != SingletonObject.getInstance<BasicGameData>().TaiwuCharId)
-            //临时
-            {
-                if(!IsClean)
-                {
-                    foreach (var pair in EffectInfoFrontend.mouseTipDisplayers)
-                    {
-                        var propertyId = pair.Key;
-                        var mouseTipDisplayer = pair.Value;
-                        if (mouseTipDisplayer && mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
-                            if (originalText.ContainsKey(propertyId))
-                            {
-                                mouseTipDisplayer.PresetParam[1] = originalText[propertyId];
-                                mouseTipDisplayer.NeedRefresh = true;
-                            }
-                    }
-                    IsClean = true;
-                }
-            }
 
             Console.WriteLine("EffectInfo:Reload file\n");
             if (EffectInfoFrontend.currentCharId < 0)
                 return;
-
             //property_id到文本的映射
             var property_text = new Dictionary<int, string>();
             //读取本地文件
             {
                 //前端在根目录，后端在backend
                 var dir = System.IO.Directory.GetCurrentDirectory();
-                var path = String.Format("{0}\\Mod\\EffectInfo\\Plugins\\Cache_GetCharacterAttribute_{1}.txt", dir, EffectInfoFrontend.currentCharId);
+                var path = String.Format("{0}\\Mod\\EffectInfo\\Plugins\\Cache_GetCharacterAttribute.txt", dir);
                 //Console.WriteLine(path);
                 //Console.WriteLine(File.Exists(path));
                 if (!File.Exists(path))
@@ -262,6 +242,11 @@ namespace EffectInfo
                 try
                 {
                     var lines = File.ReadAllLines(path);
+                    if (lines.Length < 1)
+                        throw new IOException("Invalid Effect Info Data");
+                    int id = int.Parse(lines[0]);
+                    if(id!=EffectInfoFrontend.currentCharId)
+                        throw new IOException("Invalid Effect Info Data");
                     var tmp_text = "";
                     foreach (var line in lines)
                         if (line.StartsWith("__")) //一条属性结束
@@ -324,6 +309,7 @@ namespace EffectInfo
             if (!On)
                 return;
             EffectInfoFrontend.currentCharId = charId;
+            lastUpdate = DateTime.MinValue;
             Console.WriteLine($"EffectInfo:切换到角色{0}", charId);
         }
     }
