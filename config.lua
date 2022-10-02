@@ -1,6 +1,6 @@
 return {
 	Title = "洞察",
-	Version = "v0.0.2.3",
+	Version = "v0.0.2.4-test",
 	BackendPlugins = { 
 		[1] = "EffectInfoBackend.dll",
 	},
@@ -8,7 +8,7 @@ return {
 		[1] = "EffectInfoFrontend.dll",
 	},
 	Author = "xyzkljl1",
-	Description = "测试版v0.0.2.3,对应游戏版本v0.0.20.1,(仅对太吾生效)用于在人物菜单属性的悬浮tips上显示数值详细信息",
+	Description = "测试版v0.0.2.4-test,对应测试版v0.0.22.4-test,(仅对太吾生效)用于在人物菜单属性的悬浮tips上显示数值详细信息",
 	["DefaultSettings"] = {
 		[1] = {
 			["Key"] = "On",

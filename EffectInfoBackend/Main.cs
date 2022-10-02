@@ -14,7 +14,7 @@ using TaiwuModdingLib.Core.Plugin;
 
 namespace EffectInfo
 {
-    [PluginConfig("MyFix1", "xyzkljl1", "1.0.0")]
+    [PluginConfig("EffectInfo", "xyzkljl1", "0.0.2.4-test")]
     public partial class EffectInfoBackend : TaiwuRemakePlugin
     {
         public static bool On;
@@ -495,7 +495,7 @@ namespace EffectInfo
             return result;
         }
         //不需要dirty_tag
-        public static string GetCharmInfo(Character instance, short physiologicalAge, byte clothingDisplayId)
+        public static string GetCharmInfo(Character instance, short physiologicalAge, short clothingDisplayId)
         {
             string result = "";
             var avatar = instance.GetAvatar();
@@ -1007,11 +1007,11 @@ namespace EffectInfo
                 {
                     short clothingDisplayId = character.GetClothingDisplayId();
                     //正式版这里clothingDisplayId转成byte明显是bug，而测试版修复了
-                    check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, (byte)clothingDisplayId);
+                    check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, clothingDisplayId);
                     if (check_value != 0 || ShowUseless)
                     {
                         result += ToInfoAdd("外观", check_value, 1);
-                        result += GetCharmInfo(character, physiologicalAge, (byte)clothingDisplayId);
+                        result += GetCharmInfo(character, physiologicalAge, clothingDisplayId);
                     }
                 }
                 {

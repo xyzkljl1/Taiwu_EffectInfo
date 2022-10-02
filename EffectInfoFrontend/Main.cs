@@ -16,7 +16,7 @@ using System.Threading;
 
 namespace EffectInfo
 {
-    [PluginConfig("EffectInfo", "xyzkljl1", "1.0.0")]
+    [PluginConfig("EffectInfo", "xyzkljl1", "0.0.2.4-test")]
     public class EffectInfoFrontend : TaiwuRemakePlugin
     {
         //有的属性不在property里,为了省事，视作在ECharacterPropertyReferencedType后面的enum
