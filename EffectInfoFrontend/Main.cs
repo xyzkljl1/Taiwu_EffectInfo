@@ -116,6 +116,7 @@ namespace EffectInfo
         }
         //主属性恢复的mouseTip
         //同样会跑两遍，第二次恰好是我们需要的
+        //获取原文本比较费劲，干脆放弃治疗不要了
         [HarmonyPostfix, HarmonyPatch(typeof(CharacterMainAttributeRecovery), MethodType.Constructor,new Type[] { typeof(Refers[])})]
         public static void CharacterMainAttributeRecoveryCtorPatch(CharacterMainAttributeRecovery __instance,Refers[] refersArray)
         {

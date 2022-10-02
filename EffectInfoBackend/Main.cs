@@ -354,6 +354,7 @@ namespace EffectInfo
                 short config = 0;
                 short stepSize = 0;
                 Config.NeiliAllocationEffectItem allocationCfg = Config.NeiliAllocationEffect.Instance[allocationType];
+                //次要属性前两项
                 if (propertyId== ECharacterPropertyReferencedType.RecoveryOfStance)
                 {
                     stepSize = allocationCfg.RecoveryOfStanceAndBreath.Outer;
@@ -364,7 +365,49 @@ namespace EffectInfo
                     stepSize = allocationCfg.RecoveryOfStanceAndBreath.Inner;
                     config = neiliTypeCfg.RecoveryOfStanceAndBreath.Inner;
                 }
-                else if(propertyId == ECharacterPropertyReferencedType.PenetrateOfInner)
+                //次要属性后八项
+                else if (propertyId == ECharacterPropertyReferencedType.MoveSpeed)
+                {
+                    stepSize = allocationCfg.MoveSpeed;
+                    config = neiliTypeCfg.MoveSpeed;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.RecoveryOfFlaw)
+                {
+                    stepSize = allocationCfg.RecoveryOfFlaw;
+                    config = neiliTypeCfg.RecoveryOfFlaw;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.CastSpeed)
+                {
+                    stepSize = allocationCfg.CastSpeed;
+                    config = neiliTypeCfg.CastSpeed;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.RecoveryOfBlockedAcupoint)
+                {
+                    stepSize = allocationCfg.RecoveryOfBlockedAcupoint;
+                    config = neiliTypeCfg.RecoveryOfBlockedAcupoint;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.WeaponSwitchSpeed)
+                {
+                    stepSize = allocationCfg.WeaponSwitchSpeed;
+                    config = neiliTypeCfg.WeaponSwitchSpeed;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.AttackSpeed)
+                {
+                    stepSize = allocationCfg.AttackSpeed;
+                    config = neiliTypeCfg.AttackSpeed;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.InnerRatio)
+                {
+                    stepSize = allocationCfg.InnerRatio;
+                    config = neiliTypeCfg.InnerRatio;
+                }
+                else if (propertyId == ECharacterPropertyReferencedType.RecoveryOfQiDisorder)
+                {
+                    stepSize = allocationCfg.RecoveryOfQiDisorder;
+                    config = neiliTypeCfg.RecoveryOfQiDisorder;
+                }
+                //攻防四项
+                else if (propertyId == ECharacterPropertyReferencedType.PenetrateOfInner)
                 {
                     stepSize = allocationCfg.Penetrations.Inner;
                     config = neiliTypeCfg.Penetrations.Inner;
@@ -373,11 +416,6 @@ namespace EffectInfo
                 {
                     stepSize = allocationCfg.Penetrations.Outer;
                     config = neiliTypeCfg.Penetrations.Outer;
-                }
-                else if (propertyId == ECharacterPropertyReferencedType.MoveSpeed)
-                {
-                    stepSize = allocationCfg.MoveSpeed;
-                    config = neiliTypeCfg.MoveSpeed;
                 }
                 else if (propertyId == ECharacterPropertyReferencedType.PenetrateResistOfOuter)
                 {
@@ -389,15 +427,16 @@ namespace EffectInfo
                     stepSize = allocationCfg.PenetrationResists.Inner;
                     config = neiliTypeCfg.PenetrationResists.Inner;
                 }
+                //命中回避八项
                 else if (propertyId<= ECharacterPropertyReferencedType.HitRateMind&&propertyId>= ECharacterPropertyReferencedType.HitRateStrength)
                 {
                     int idx = propertyId - ECharacterPropertyReferencedType.HitRateStrength;
                     stepSize = allocationCfg.HitValues.Items[idx];
                     config = neiliTypeCfg.HitValues.Items[idx];                
                 }
-                else if (propertyId <= ECharacterPropertyReferencedType.AvoidRateMind && propertyId >= ECharacterPropertyReferencedType.AvoidRateMind)
+                else if (propertyId <= ECharacterPropertyReferencedType.AvoidRateMind && propertyId >= ECharacterPropertyReferencedType.AvoidRateStrength)
                 {
-                    int idx = propertyId - ECharacterPropertyReferencedType.AvoidRateMind;
+                    int idx = propertyId - ECharacterPropertyReferencedType.AvoidRateStrength;
                     stepSize = allocationCfg.AvoidValues.Items[idx];
                     config = neiliTypeCfg.AvoidValues.Items[idx];
                 }
@@ -967,6 +1006,7 @@ namespace EffectInfo
                 else
                 {
                     short clothingDisplayId = character.GetClothingDisplayId();
+                    //正式版这里clothingDisplayId转成byte明显是bug，而测试版修复了
                     check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, (byte)clothingDisplayId);
                     if (check_value != 0 || ShowUseless)
                     {
@@ -1404,7 +1444,7 @@ namespace EffectInfo
             short factor = Config.CombatDifficulty.Instance[combatDifficulty].RecoveryOfFlaw;
             return GetSecondaryAttributeInfoImplement("__RecoveryOfFlaw", factor, fieldId, propertyType, true, true, __instance, character);
         }
-        //次要属性除了架势/提气恢复，其它计算代码几乎一模一样
+        //次要属性除了架势/提气恢复，其它计算代码差别很小
         unsafe public static string GetSecondaryAttributeInfoImplement(string save_key, short diffcult_factor,ushort fieldId, ECharacterPropertyReferencedType propertyType,bool canAdd,bool canReduce,
             CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
@@ -1434,7 +1474,25 @@ namespace EffectInfo
             {
                 {
                     Config.CharacterItem template = Config.Character.Instance[character.GetTemplateId()];
-                    check_value = template.BaseMoveSpeed;
+                    switch (propertyType)
+                    {
+                        case ECharacterPropertyReferencedType.MoveSpeed:
+                            check_value = template.BaseMoveSpeed; break;
+                        case ECharacterPropertyReferencedType.RecoveryOfFlaw:
+                            check_value = template.BaseRecoveryOfFlaw; break;
+                        case ECharacterPropertyReferencedType.CastSpeed:
+                            check_value = template.BaseCastSpeed; break;
+                        case ECharacterPropertyReferencedType.RecoveryOfBlockedAcupoint:
+                            check_value = template.BaseRecoveryOfBlockedAcupoint; break;
+                        case ECharacterPropertyReferencedType.WeaponSwitchSpeed:
+                            check_value = template.BaseWeaponSwitchSpeed; break;
+                        case ECharacterPropertyReferencedType.AttackSpeed:
+                            check_value = template.BaseAttackSpeed; break;
+                        case ECharacterPropertyReferencedType.InnerRatio:
+                            check_value = template.BaseInnerRatio; break;
+                        case ECharacterPropertyReferencedType.RecoveryOfQiDisorder:
+                            check_value = template.BaseRecoveryOfQiDisorder; break;
+                    }
                     result += ToInfoAdd("基础", check_value, 1);
                 }
                 {//效果加值
@@ -1447,6 +1505,17 @@ namespace EffectInfo
                         tmp += PackGetCommonPropertyBonusInfo(ref total, ref dirty_tag, character, propertyType, valueSumType);
                         tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref total, ref dirty_tag, character, propertyType, valueSumType);
                         tmp += PackGetModifyValueInfo(ref total, ref dirty_tag, charId, fieldId, 0, -1, -1, -1, valueSumType);
+                        if(propertyType == ECharacterPropertyReferencedType.RecoveryOfQiDisorder)
+                        {
+                            var specifyBuildingEffect = DomainManager.Building.GetSpecifyBuildingEffect(character.GetLocation());
+                            if(specifyBuildingEffect != null)
+                            {
+                                var value = specifyBuildingEffect.QiRecover;
+                                if (value != 0)
+                                    total += value;
+                                tmp += ToInfoAdd("特殊建筑", value, 3);
+                            }
+                        }
                     }
                     check_value += (short)total;
                     if (ShowUseless || dirty_tag)
@@ -1457,7 +1526,7 @@ namespace EffectInfo
                 }
                 //内力
                 if (canAdd)
-                    result += CustomGetNeiliAllocationInfo(ref check_value, character, ECharacterPropertyReferencedType.MoveSpeed, true);
+                    result += CustomGetNeiliAllocationInfo(ref check_value, character, propertyType, true);
                 if (canAdd)
                 {
                     if (DomainManager.Combat.IsCharInCombat(charId))
