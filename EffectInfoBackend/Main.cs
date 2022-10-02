@@ -1009,7 +1009,7 @@ namespace EffectInfo
             }
             else if (check_value > 900)
             {
-                check_value = 0;
+                check_value = 900;
                 result += ToInfo("上限", "<=900", 1);
             }
             return $"\n{result}\n{ToInfoAdd("总和校验值", check_value, 1)}__Attraction\n";
@@ -1517,7 +1517,7 @@ namespace EffectInfo
                         var tmp = "";
                         dirty_tag = false;
                         int value = 100;
-                        tmp += ToInfoPercent("基础", 100, 2);
+                        tmp += ToInfoAdd("基础", 100, 2);
                         if (canAdd)
                             tmp += PackGetModifyValueInfo(ref value, ref dirty_tag, charId, fieldId, (sbyte)1, -1, -1, -1, (sbyte)1);
                         if (canReduce)
