@@ -19,8 +19,18 @@ namespace EffectInfo
     [PluginConfig("EffectInfo", "xyzkljl1", "1.0.0")]
     public class EffectInfoFrontend : TaiwuRemakePlugin
     {
+        //有的属性不在property里,为了省事，视作在ECharacterPropertyReferencedType后面的enum
+        public enum CustomPropertyIdEnum
+        {
+            RecoverMainAttribute0 = ECharacterPropertyReferencedType.Count + 1,
+            RecoverMainAttribute1 = ECharacterPropertyReferencedType.Count + 2,
+            RecoverMainAttribute2 = ECharacterPropertyReferencedType.Count + 3,
+            RecoverMainAttribute3 = ECharacterPropertyReferencedType.Count + 4,
+            RecoverMainAttribute4 = ECharacterPropertyReferencedType.Count + 5,
+            RecoverMainAttribute5 = ECharacterPropertyReferencedType.Count + 6,
+        }
         public static bool On = false;
-        public static int test = 0; 
+        public static bool IsClean=true;//临时 
         public static int InfoLevel = 3;
         public static int currentCharId=-1;
         public static DateTime lastUpdate=DateTime.MinValue;
@@ -62,6 +72,12 @@ namespace EffectInfo
             {"__InnerRatio",(short)ECharacterPropertyReferencedType.InnerRatio },
             {"__RecoveryOfQiDisorder",(short)ECharacterPropertyReferencedType.RecoveryOfQiDisorder },
 
+            {"__RecoveryMainAttribute0",(short)CustomPropertyIdEnum.RecoverMainAttribute0 },
+            {"__RecoveryMainAttribute1",(short)CustomPropertyIdEnum.RecoverMainAttribute1 },
+            {"__RecoveryMainAttribute2",(short)CustomPropertyIdEnum.RecoverMainAttribute2 },
+            {"__RecoveryMainAttribute3",(short)CustomPropertyIdEnum.RecoverMainAttribute3 },
+            {"__RecoveryMainAttribute4",(short)CustomPropertyIdEnum.RecoverMainAttribute4 },
+            {"__RecoveryMainAttribute5",(short)CustomPropertyIdEnum.RecoverMainAttribute5 },
         };
         public override void Dispose()
         {
@@ -98,12 +114,34 @@ namespace EffectInfo
             FieldInfo field_info = type.GetField(field_name, System.Reflection.BindingFlags.Instance);
             field_info.SetValue(instance, value);
         }
+        //主属性恢复的mouseTip
+        //同样会跑两遍，第二次恰好是我们需要的
+        [HarmonyPostfix, HarmonyPatch(typeof(CharacterMainAttributeRecovery), MethodType.Constructor,new Type[] { typeof(Refers[])})]
+        public static void CharacterMainAttributeRecoveryCtorPatch(CharacterMainAttributeRecovery __instance,Refers[] refersArray)
+        {
+            if (!On)
+                return;
+            for(int i=0;i<6;++i)
+            {
+                short propertyId = (short)(i + CustomPropertyIdEnum.RecoverMainAttribute0 - 0);
+                Console.WriteLine($"EffectInfo:记录mouseTipDisplayer {propertyId}");
+                MouseTipDisplayer mouseTipDisplayer=refersArray[i].CGet<MouseTipDisplayer>("MouseTip");
+                if (mouseTipDisplayer != null && mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
+                {
+                    originalText[propertyId] = "";//属性恢复的文本是动态的，此时尚未设置内容
+//                    mouseTipDisplayer.PresetParam[0] = "asdsads";
+                    mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                }
+                else
+                    originalText[propertyId] = "";
+            }
+        }
 
         //魅力的mouseTip
         //由于CharacterCharm控件出现在多个地方，要从上一级找
         //每次打开人物界面这个控件都会创建新的
         [HarmonyPostfix, HarmonyPatch(typeof(UI_CharacterMenuInfo), "InitCharacterUIElements")]
-        public static void AttributeItemCtorPatch(UI_CharacterMenuInfo __instance)
+        public static void InitCharacterUIElementsPatch(UI_CharacterMenuInfo __instance)
         {
             if (!On)
                 return;
@@ -178,16 +216,20 @@ namespace EffectInfo
             if (currentCharId != SingletonObject.getInstance<BasicGameData>().TaiwuCharId)
             //临时
             {
-                foreach (var pair in EffectInfoFrontend.mouseTipDisplayers)
+                if(!IsClean)
                 {
-                    var propertyId = pair.Key;
-                    var mouseTipDisplayer = pair.Value;
-                    if (mouseTipDisplayer && mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
-                        if (originalText.ContainsKey(propertyId))
-                        {
-                            mouseTipDisplayer.PresetParam[1] = originalText[propertyId];
-                            mouseTipDisplayer.NeedRefresh = true;
-                        }
+                    foreach (var pair in EffectInfoFrontend.mouseTipDisplayers)
+                    {
+                        var propertyId = pair.Key;
+                        var mouseTipDisplayer = pair.Value;
+                        if (mouseTipDisplayer && mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
+                            if (originalText.ContainsKey(propertyId))
+                            {
+                                mouseTipDisplayer.PresetParam[1] = originalText[propertyId];
+                                mouseTipDisplayer.NeedRefresh = true;
+                            }
+                    }
+                    IsClean = true;
                 }
             }
 
@@ -203,7 +245,7 @@ namespace EffectInfo
                 var dir = System.IO.Directory.GetCurrentDirectory();
                 var path = String.Format("{0}\\Mod\\EffectInfo\\Plugins\\Cache_GetCharacterAttribute_{1}.txt", dir, EffectInfoFrontend.currentCharId);
                 //Console.WriteLine(path);
-                Console.WriteLine(File.Exists(path));
+                //Console.WriteLine(File.Exists(path));
                 if (!File.Exists(path))
                 {
                     // File.WriteAllText(path + $"{test++}NoFile.txt", $"{DateTime.Now}" );
@@ -254,6 +296,8 @@ namespace EffectInfo
                     {
                         mouseTipDisplayer.PresetParam[1] = originalText[propertyId] + "\n" + property_text[propertyId];
                         mouseTipDisplayer.NeedRefresh = true;
+                        IsClean = false;
+                        //Console.WriteLine($"ChangeEEEE{propertyId} {property_text[propertyId]}");
                     }
             }
         }
@@ -268,7 +312,7 @@ namespace EffectInfo
             if (!On)
                 return;
             if (!mouseTipDisplayers.ContainsValue(__instance))
-                return;
+                return;            
             ReloadAllText();
         }
         // 每次切到属性页面都会触发SetCurrentCharacterId，此时不能保证后端写完文件

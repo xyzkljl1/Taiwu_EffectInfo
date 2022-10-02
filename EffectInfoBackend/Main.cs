@@ -1473,7 +1473,7 @@ namespace EffectInfo
                             //GetCombatSkillCastAddMoveSpeedInfo很简单就不写个函数了
                             result += ToInfoAdd("基础", skill.GetAddMoveSpeedOnCast(), 2);
                             result += ToInfoPercent("挥发度", skill.GetPracticeLevel(), 2);
-                            result += ToInfoPercent("帕瓦", skill.GetPracticeLevel(), 2);
+                            result += ToInfoPercent("威力(帕瓦！)", skill.GetPower(), 2);
                         }
                     }
                 }
@@ -1628,6 +1628,29 @@ namespace EffectInfo
             return GetSecondaryAttributeInfoImplement("__RecoveryOfQiDisorder", factor, fieldId, propertyType, true, true, __instance, character);
         }
 
+        unsafe public static string GetRecoveryMainAttributeInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        {
+            var result = new List<string> { "", "", "", "", "", "" };
+            var check_value = new List<int> { 0, 0, 0, 0, 0, 0 };
+            
+            MainAttributes maxMainAttributes = character.GetMaxMainAttributes();
+            short physiologicalAge = character.GetPhysiologicalAge();
+            int clampedAge = ((physiologicalAge <= 100) ? physiologicalAge : 100);
+            MainAttributes ageInfluence = Config.AgeEffect.Instance[clampedAge].MainAttributesRecoveries;
+            for (int i = 0; i < 6; i++)
+            {
+                check_value[i] = maxMainAttributes.Items[i] / 5;
+                result[i] += ToInfoAdd("最大属性/5", check_value[i], 1);
+                check_value[i] = check_value[i] * ageInfluence.Items[i] / 100;
+                result[i] += ToInfoPercent($"{clampedAge}岁(最大100)", ageInfluence.Items[i], 1);
+            }
+            {
+                var tmp = "";
+                for(int i=0;i<6;++i)
+                    tmp += result[i] + ToInfoAdd("总合校验值", check_value[i],1) +$"__RecoveryMainAttribute{i}\n";
+                return tmp;
+            }
+        }
         //GetEquipmentCompareData和GetCharacterAttributeDisplayData根本没有卵用,无论查看谁的信息都调用GetGroupCharDisplayDataList
         //打开属性界面时调用GetGroupCharDisplayDataList，但是分配内力等操作只会触发CheckModified不会重新调用GetGroupCharDisplayDataList
         //修改属性一定会触发CheckModified，subId0是人物Id，subId1是？？Id（和DataStatesOffset用的Id一致)
@@ -1666,7 +1689,7 @@ namespace EffectInfo
                     info += GetAttackSpeed(__instance, character);
                     info += GetInnerRatio(__instance, character);
                     info += GetRecoveryOfQiDisorder(__instance, character);
-
+                    info += GetRecoveryMainAttributeInfo(__instance,character);
                     File.WriteAllText(path, info);
                     AdaptableLog.Info("EffectInfo:Done");
                 }
