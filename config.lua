@@ -1,6 +1,6 @@
 return {
-	Title = "显示效果信息",
-	Version = "2022.9.29",
+	Title = "人物数值解析",
+	Version = "v0.0.2",
 	BackendPlugins = { 
 		[1] = "EffectInfoBackend.dll",
 	},
@@ -8,13 +8,13 @@ return {
 		[1] = "EffectInfoFrontend.dll",
 	},
 	Author = "xyzkljl1",
-	Description = "啦啦啦",
+	Description = "测试版v0.0.2,对应游戏版本v0.0.20.1,(仅对太吾生效)用于在人物菜单属性的悬浮tips上显示数值详细信息",
 	["DefaultSettings"] = {
 		[1] = {
 			["Key"] = "On",
 			["SettingType"] = "Toggle",
 			["DisplayName"] = "显示详细数值",
-			["Description"] = "(仅对太吾生效)开启时在人物界面显示属性数值的详细信息",
+			["Description"] = "开启时在人物界面显示属性数值的详细信息",
 			["DefaultValue"] = true,
 			},
 		[2] = {
@@ -30,8 +30,8 @@ return {
 		[3] = {
 			["Key"] = "ShowUseless",
 			["SettingType"] = "Toggle",
-			["DisplayName"] = "显示未激活的加成",
-			["Description"] = "开启时，即使某项加值为空，也显示出来",
+			["DisplayName"] = "显示冗余信息",
+			["Description"] = "开启时，显示更多为0的加成",
 			["DefaultValue"] = true,
 			},
 		},
