@@ -1593,7 +1593,7 @@ namespace EffectInfo
         //无论查看谁的信息都调用GetGroupCharDisplayDataList或GetCharacterDisplayDataList?
         //打开属性界面时调用GetGroupCharDisplayDataList?但是分配内力等操作只会触发CheckModified不会重新调用GetGroupCharDisplayDataList
         //修改属性一定会触发CheckModified，subId0是人物Id，subId1是fieldId
-        /*[HarmonyPrefix,
+        [HarmonyPrefix,
         HarmonyPatch(typeof(CharacterDomain),
               "GetGroupCharDisplayDataList")]
         unsafe public static void GetGroupCharDisplayDataListPrePatch(
@@ -1620,7 +1620,7 @@ namespace EffectInfo
                 Cache_FieldText[fieldId] = (string)method_info.Invoke(null, new object[] { __instance, character });
             }
             SaveInfo();
-        }*/
+        }
         [HarmonyPrefix,HarmonyPatch(typeof(CharacterDomain),"GetCharacterDisplayDataList")]
         unsafe public static void GetCharacterDisplayDataPrePatch(CharacterDomain __instance, List<int> charIdList)
         {
