@@ -1590,10 +1590,10 @@ namespace EffectInfo
                 tmp += pair.Value;
             File.WriteAllText(path, tmp);
         }
-        //GetEquipmentCompareData和GetCharacterAttributeDisplayData根本没有卵用,无论查看谁的信息都调用GetGroupCharDisplayDataList
-        //打开属性界面时调用GetGroupCharDisplayDataList，但是分配内力等操作只会触发CheckModified不会重新调用GetGroupCharDisplayDataList
+        //无论查看谁的信息都调用GetGroupCharDisplayDataList或GetCharacterDisplayDataList?
+        //打开属性界面时调用GetGroupCharDisplayDataList?但是分配内力等操作只会触发CheckModified不会重新调用GetGroupCharDisplayDataList
         //修改属性一定会触发CheckModified，subId0是人物Id，subId1是fieldId
-        [HarmonyPrefix,
+        /*[HarmonyPrefix,
         HarmonyPatch(typeof(CharacterDomain),
               "GetGroupCharDisplayDataList")]
         unsafe public static void GetGroupCharDisplayDataListPrePatch(
@@ -1613,6 +1613,31 @@ namespace EffectInfo
                 Type type = typeof(EffectInfoBackend);
                 MethodInfo method_info = type.GetMethod($"Get{MyFieldIds.FieldId2FieldName[fieldId]}Info", System.Reflection.BindingFlags.Static| BindingFlags.Public);
                 if(method_info==null)
+                {
+                    AdaptableLog.Info($"Effect Info:Can't Find Get{MyFieldIds.FieldId2FieldName[fieldId]}Info");
+                    continue;
+                }
+                Cache_FieldText[fieldId] = (string)method_info.Invoke(null, new object[] { __instance, character });
+            }
+            SaveInfo();
+        }*/
+        [HarmonyPrefix,HarmonyPatch(typeof(CharacterDomain),"GetCharacterDisplayDataList")]
+        unsafe public static void GetCharacterDisplayDataPrePatch(CharacterDomain __instance, List<int> charIdList)
+        {
+            if (charIdList.Count != 1)
+                return;
+            if (charIdList[0] < 0)
+                return;
+            Character character = __instance.GetElement_Objects(charIdList[0]);
+            if (character == null)
+                return;
+            currentCharId = charIdList[0];
+            //更新所有monitoredfield
+            foreach (var fieldId in MonitoredFieldIds)
+            {
+                Type type = typeof(EffectInfoBackend);
+                MethodInfo method_info = type.GetMethod($"Get{MyFieldIds.FieldId2FieldName[fieldId]}Info", System.Reflection.BindingFlags.Static | BindingFlags.Public);
+                if (method_info == null)
                 {
                     AdaptableLog.Info($"Effect Info:Can't Find Get{MyFieldIds.FieldId2FieldName[fieldId]}Info");
                     continue;
