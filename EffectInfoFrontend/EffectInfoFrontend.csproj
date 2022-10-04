@@ -68,8 +68,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BuildingManageInfo.cs" />
+    <Compile Include="Debug.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ReadingBookInfo.cs" />
+    <Compile Include="Util.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

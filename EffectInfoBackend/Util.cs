@@ -912,22 +912,50 @@ namespace EffectInfo
 			Type type = instance.GetType();
 			FieldInfo field_info = type.GetField(field_name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 			field_info.SetValue(instance, value);
-		}
-		//level为负时不输出抬头的level
-		unsafe static string ToInfo(string title, string item, int msgLevel)
-		{
-			var levelabs=Math.Abs(msgLevel);
-			if (levelabs > EffectInfoBackend.InfoLevel)
-				return "";
-			string result = msgLevel>=0?$"{msgLevel} ":"";
-			if (levelabs == 1)
-				result += $"<color=#pinkyellow>·{title}\t\t\t\t\t\t{item}</color>\n";//align会改变整行
-			else if (levelabs == 2)
-				result += $"<color=#grey>\t·{title}\t\t\t\t\t{item}</color>\n";
+        }
+        //level为负时不输出抬头的level
+        unsafe static string ToInfo(string title, string item, int msgLevel)
+        {
+            var levelabs = Math.Abs(msgLevel);
+            if (levelabs > EffectInfoBackend.InfoLevel)
+                return "";
+            string result = msgLevel >= 0 ? $"{msgLevel} " : "";
+            if (levelabs == 1)
+                result += $"<color=#pinkyellow>·{title}\t\t\t\t\t\t{item}</color>\n";//align会改变整行
+            else if (levelabs == 2)
+                result += $"<color=#grey>\t·{title}\t\t\t\t\t{item}</color>\n";
+			else if (levelabs == 3)
+            {
+				if (title.Length > 6)
+					result += $"<color=#grey>\t\t·{title}\t\t\t// {item}</color>\n";
+				else if (title.Length > 10)
+					result += $"<color=#grey>\t\t·{title}\t\t// {item}</color>\n";
+				else if (title.Length > 14)
+					result += $"<color=#grey>\t\t·{title}\t// {item}</color>\n";
+				else if (title.Length > 18)
+					result += $"<color=#grey>\t\t·{title}// {item}</color>\n";
+				else
+					result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";
+			}
+			else if (levelabs == 4)
+				result += $"<color=#grey>\t\t\t·{title}\t\t\t\t//// {item}</color>\n";
 			else
 				result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";
 			return result;
+        }
+		unsafe static string ToInfoMin(string title, int value, int infoLevel)
+		{
+			return ToInfo(title, $">={value}", infoLevel);
 		}
+		unsafe static string ToInfoMax(string title, int value, int infoLevel)
+		{
+			return ToInfo(title, $"<={value}", infoLevel);
+		}
+		unsafe static string ToInfoDivision(string title, int value, int infoLevel)
+		{
+			return ToInfo(title, $"÷{value}", infoLevel);
+		}
+
 		unsafe static string ToInfoAdd(string title, double value, int infoLevel)
 		{
 			if (value > 0)

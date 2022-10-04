@@ -14,6 +14,7 @@ using System.IO;
 using UICommon.Character.Elements;
 using System.Threading;
 using UnityEngine;
+using System.Text.RegularExpressions;
 
 namespace EffectInfo
 {
@@ -38,7 +39,6 @@ namespace EffectInfo
         public static bool duringSkillBreakPlateUpdate=false;
         public static DateTime lastUpdate=DateTime.MinValue;
         Harmony harmony;
-        //public ModMono modMono;
         //property id 到mousetip的映射
         public static Dictionary<short, MouseTipDisplayer> mouseTipDisplayers = new Dictionary<short, MouseTipDisplayer>();
         public static Dictionary<short, string> originalText = new Dictionary<short, string>();
@@ -92,8 +92,13 @@ namespace EffectInfo
 
         public override void Initialize()
         {
+            MyDomainIds.Init(); 
             harmony = Harmony.CreateAndPatchAll(typeof(EffectInfoFrontend));
-            //this.modMono = new GameObject("askldjaskldaskljd").AddComponent<ModMono>();
+            //调试用代码
+            Type type = typeof(EffectInfoFrontend);
+            MethodInfo method_info = type.GetMethod("DebugInitialize", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+            if (method_info != null)
+                method_info.Invoke(null, new object[] { });
         }
         public override void OnModSettingUpdate()
         {
