@@ -913,14 +913,16 @@ namespace EffectInfo
 			FieldInfo field_info = type.GetField(field_name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 			field_info.SetValue(instance, value);
 		}
+		//level为负时不输出抬头的level
 		unsafe static string ToInfo(string title, string item, int msgLevel)
 		{
-			if (msgLevel > EffectInfoBackend.InfoLevel)
+			var levelabs=Math.Abs(msgLevel);
+			if (levelabs > EffectInfoBackend.InfoLevel)
 				return "";
-			string result = $"{msgLevel} ";
-			if (msgLevel == 1)
+			string result = msgLevel>=0?$"{msgLevel} ":"";
+			if (levelabs == 1)
 				result += $"<color=#pinkyellow>·{title}\t\t\t\t\t\t{item}</color>\n";//align会改变整行
-			else if (msgLevel == 2)
+			else if (levelabs == 2)
 				result += $"<color=#grey>\t·{title}\t\t\t\t\t{item}</color>\n";
 			else
 				result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";

@@ -73,33 +73,33 @@ namespace EffectInfo
                             GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
                             var value = __instance.BaseWorkContribution + manageChar.GetLifeSkillAttainment(lifeSkillType);
                             total_attainment += value;
-                            tmp += ToInfoAdd($":{lifeSkillName}+{__instance.BaseWorkContribution}", value, 3);
+                            tmp += ToInfoAdd($":{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
                         }
                     }
-                    tmp += ToInfoMulti("倍率", 0.01, 3);
+                    tmp += ToInfoMulti("倍率", 0.01, -3);
                     //此处CalcResourceChangeFunc的isAverage参数恒为false
                 }
                 if (total_attainment == 0)
                 {
-                    result += ToInfo("无产出", "=0", 1);//0产出时不加上tmp
+                    result += ToInfo("无产出", "=0", -1);//0产出时不加上tmp
                     check_value = 0;
                 }
                 else
                 {
                     double tmp_check_value =1.0 + 0.01* (double)total_attainment;
-                    result += ToInfoMulti("造诣效率", tmp_check_value, 1);
+                    result += ToInfoMulti("造诣效率", tmp_check_value, -1);
                     result += ToInfoAdd("基础", 1.0, 2);
-                    result += ToInfoMulti("总造诣", 0.01 * (double)total_attainment, 2);
+                    result += ToInfoMulti("总造诣", 0.01 * (double)total_attainment, -2);
                     result += tmp;
                     tmp_check_value *= (double)(blockData.Level + 10);
-                    result += ToInfoMulti("建筑等级+10", (double)(blockData.Level + 10), 1);
+                    result += ToInfoMulti("建筑等级+10", (double)(blockData.Level + 10), -1);
                     
                     var factor=__instance.CalcResourceChangeFactor(blockData);
                     tmp_check_value *= factor;
-                    result += ToInfoMulti("依赖建筑", factor, 1);
+                    result += ToInfoMulti("依赖建筑", factor, -1);
                     check_value = (int)tmp_check_value;
 
-                    result += ToInfoAdd("总合校验值",check_value, 1);
+                    result += ToInfoAdd("总合校验值",check_value, -1);
                 }
             }
             var path = $"{Directory.GetCurrentDirectory()}\\..{PATH_GetResourceOutput}";
