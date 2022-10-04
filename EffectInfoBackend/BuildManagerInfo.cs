@@ -73,7 +73,7 @@ namespace EffectInfo
                             GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
                             var value = __instance.BaseWorkContribution + manageChar.GetLifeSkillAttainment(lifeSkillType);
                             total_attainment += value;
-                            tmp += ToInfoAdd($":{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
+                            tmp += ToInfoAdd($"{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
                         }
                     }
                     tmp += ToInfoMulti("倍率", 0.01, -3);
@@ -103,7 +103,17 @@ namespace EffectInfo
                 }
             }
             var path = $"{Directory.GetCurrentDirectory()}\\..{PATH_GetResourceOutput}";
-            File.WriteAllText(path, result);
+            for(int i=0;i<5;++i)
+            try
+            {
+                File.WriteAllText(path, result);
+                break;
+            }
+            catch (IOException)
+            {
+                AdaptableLog.Info("EffectInfo:Write File Fail,Retrying...");
+                System.Threading.Tasks.Task.Delay(500);
+            }
         }
     }
 }

@@ -22,6 +22,7 @@ namespace EffectInfo
         public static bool On;
         public static bool ShowUseless;
         public static int InfoLevel = 3;
+        public static List<string> NeiliTrans = new List<string> { "催破","轻灵","护体","奇窍"};
         //已经实现获取信息方法的Field
         public static HashSet<int> MonitoredFieldIds =new HashSet<int>();
 
@@ -474,7 +475,7 @@ namespace EffectInfo
                     if((isAdd&&config > 0)|| (config < 0&&!isAdd))//isAdd时只算正的，否则只算负的
                     {
                         value += (short)(config * (allocation / stepSize));
-                        tmp += ToInfoAdd($"内力/{stepSize}", (allocation / stepSize), 2);
+                        tmp += ToInfoAdd($"{NeiliTrans[allocationType]}/{stepSize}", (allocation / stepSize), 2);
                         tmp += ToInfoMulti("倍率", config, 2);
                         dirty_tag = true;
                     }
@@ -1588,7 +1589,18 @@ namespace EffectInfo
             var tmp = $"{currentCharId}\n";
             foreach (var pair in Cache_FieldText)
                 tmp += pair.Value;
-            File.WriteAllText(path, tmp);
+            //写入失败时重试几次
+            for(int i=0;i<5;++i)
+                try
+                {
+                    File.WriteAllText(path, tmp);
+                    break;
+                }
+                catch (IOException)
+                {
+                    AdaptableLog.Info("EffectInfo:Write File Fail,Retrying...");
+                    System.Threading.Tasks.Task.Delay(500);
+                }
         }
         //无论查看谁的信息都调用GetGroupCharDisplayDataList或GetCharacterDisplayDataList?
         //打开属性界面时调用GetGroupCharDisplayDataList?但是分配内力等操作只会触发CheckModified不会重新调用GetGroupCharDisplayDataList
