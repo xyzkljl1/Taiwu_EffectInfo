@@ -22,6 +22,9 @@ namespace EffectInfo
     [PluginConfig("EffectInfo", "xyzkljl1", "0.0.2.4-test")]
     public partial class EffectInfoFrontend : TaiwuRemakePlugin
     {
+        public static readonly string PATH_ParentDir = "\\Mod\\EffectInfo\\";
+        public static readonly string PATH_CharacterAttribute = $"{PATH_ParentDir}Cache_GetCharacterAttribute.txt";
+
         //有的属性不在property里,为了省事，视作在ECharacterPropertyReferencedType后面的enum
         public enum CustomPropertyIdEnum
         {
@@ -258,7 +261,7 @@ namespace EffectInfo
             {
                 //前端在根目录，后端在backend
                 var dir = System.IO.Directory.GetCurrentDirectory();
-                var path = String.Format("{0}\\Mod\\EffectInfo\\Plugins\\Cache_GetCharacterAttribute.txt", dir);
+                var path = $"{dir}{PATH_CharacterAttribute}";
                 //UnityEngine.Debug.Log(path);
                 //UnityEngine.Debug.Log(File.Exists(path));
                 if (!File.Exists(path))

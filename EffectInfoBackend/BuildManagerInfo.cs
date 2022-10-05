@@ -21,7 +21,7 @@ namespace EffectInfo
     partial class EffectInfoBackend
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetResourceOutput = 6723;
-        public static readonly string PATH_GetResourceOutput = "\\Mod\\EffectInfo\\Plugins\\Cache_BuildingResource.txt";
+        public static readonly string PATH_GetResourceOutput = $"{PATH_ParentDir}Cache_BuildingResource.txt";
         //重载BuildingDomain的CallMethod响应供前端使用
         [HarmonyPrefix, HarmonyPatch(typeof(BuildingDomain), "CallMethod")]
         public static bool BuildingDomainCallMethodPatch(BuildingDomain __instance,int __result,

@@ -20,7 +20,7 @@ namespace EffectInfo
     public partial class EffectInfoBackend
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetReadingEfficiency = 6724;
-        public static readonly string PATH_GetReadingEfficiency = "\\Mod\\EffectInfo\\Plugins\\Cache_ReadingEfficiency.txt";
+        public static readonly string PATH_GetReadingEfficiency = $"{PATH_ParentDir}Cache_ReadingEfficiency.txt";
         //重载BuildingDomain的CallMethod响应供前端使用
         [HarmonyPrefix, HarmonyPatch(typeof(TaiwuDomain), "CallMethod")]
         public static bool BuildingDomainCallMethodPatch(TaiwuDomain __instance, int __result,
@@ -279,9 +279,9 @@ namespace EffectInfo
             {//造诣
                  //CalcReadingSpeedAttainmentFactor
                 int value = (int)Config.SkillGradeData.Instance[book.GetGrade()].ReadingAttainmentRequirement;
+                attainment_result += ToInfoMulti("倍率", 100, -3);
                 attainment_result += ToInfoDivision("品级", value, -3);
                 value = 100 * (int)skillAttainment / value;
-                attainment_result += ToInfoMulti("倍率", 100, -3);
 
                 if (value > 1000)
                 {

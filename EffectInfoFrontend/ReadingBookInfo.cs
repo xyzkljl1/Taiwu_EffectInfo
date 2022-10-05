@@ -13,7 +13,7 @@ namespace EffectInfo
     public partial class EffectInfoFrontend
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetReadingEfficiency = 6724;
-        public static readonly string PATH_GetReadingEfficiency = "\\Mod\\EffectInfo\\Plugins\\Cache_ReadingEfficiency.txt";
+        public static readonly string PATH_GetReadingEfficiency = $"{PATH_ParentDir}Cache_ReadingEfficiency.txt";
 
         public static void UpdateReadingMouseTips(UI_Reading __instance)
         {

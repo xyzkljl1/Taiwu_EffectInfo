@@ -24,7 +24,7 @@ namespace EffectInfo
 	public partial class EffectInfoFrontend
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetResourceOutput = 6723;
-        public static readonly string PATH_GetResourceOutput = "\\Mod\\EffectInfo\\Plugins\\Cache_BuildingResource.txt";
+        public static readonly string PATH_GetResourceOutput = $"{PATH_ParentDir}Cache_BuildingResource.txt";
 
         //创建mouseTip并更新信息
         //在MouseTipManager中持续监视最上方的GameObject,如果这个GameObject下挂了MouseTipDisplayer类型的Component就会显示mouseTip
