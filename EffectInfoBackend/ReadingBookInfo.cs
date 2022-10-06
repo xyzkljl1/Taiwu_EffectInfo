@@ -132,6 +132,14 @@ namespace EffectInfo
                 }
         }
         //check_value不返回
+        //Combatskillbook:
+        //pageId:[0,5],0代表总纲，1-5代表第一页到第五页，用于pageType的位偏移
+        //pageType:是一个8位的byte，低3位是总纲的字决，高5位分别是第一到第五页的direction
+        //direction:bit，正逆练类型，正练是0
+        //InternalIndex:每页都有一个InternalIndex,由pageId和pageType决定,总纲是0，后五页，如果是正练则Index为[5,9](第一页为5,第二页为6...),逆练则为[10,14](第一页为10...)
+        //InternalIndex用于readingProgress的下标，readingState的bit offset
+        //OutlinePage=总纲，NormalPage=第一到第五页,总纲类型又作behaviorType
+
         public static unsafe string GetReadingSpeedBonusInfo(ref int check_value,TaiwuDomain __instance,byte curReadingPage, bool isInBattle = false)
         {
             var result = "";
@@ -264,7 +272,7 @@ namespace EffectInfo
                 }
                 //门派
                 sbyte sectId = Config.CombatSkill.Instance[book.GetCombatSkillTemplateId()].SectId;
-                sect_result = CalcReadingSpeedSectApprovalFactorInfo(_taiwuChar,out sect_factor, sectId, (sbyte)((curReadingPage == 0) ? direction : -1), (sbyte)(curReadingPage - 1), isInBattle);
+                sect_result = CalcReadingSpeedSectApprovalFactorInfo(_taiwuChar,out sect_factor, (sbyte)((curReadingPage == 0) ? -1 : direction), sectId, (sbyte)((curReadingPage == 0) ? direction : -1), (sbyte)(curReadingPage - 1), isInBattle);
                 //此项未实装
                 SpecifyBuildingEffect buildingEffect = DomainManager.Building.GetSpecifyBuildingEffect(_taiwuChar.GetLocation());
                 if (buildingEffect != null)
@@ -311,6 +319,7 @@ namespace EffectInfo
                 int strategy_factor = 0;
                 var strategy_result= GetPageReadingEfficiencyBonusInfo(ref strategy_factor, strategies,curReadingPage);
                 check_value = check_value * strategy_factor/100;
+                result += strategy_result;
             }
             {
                 //门派
@@ -331,7 +340,8 @@ namespace EffectInfo
             result = ToInfoPercent("效率加成",check_value,-1)+result;
             return result;
         }
-        public static string CalcReadingSpeedSectApprovalFactorInfo(Character _taiwuChar, out int factor,sbyte orgTemplateId, sbyte combatSkillDirection, sbyte pageId, bool isInBattle)
+        //由于游戏有bug，总纲和非总纲判断反了，此处额外传入一个正确的direction
+        public static string CalcReadingSpeedSectApprovalFactorInfo(Character _taiwuChar, out int factor,sbyte real_combatSkillDirection,sbyte orgTemplateId, sbyte combatSkillDirection, sbyte pageId, bool isInBattle)
         {
             var result = "";
             if (orgTemplateId == 0)
@@ -345,21 +355,30 @@ namespace EffectInfo
             if (sectApprovingRate >= 300)//门派支持
             {
                 Config.SectApprovingEffectItem config = Config.SectApprovingEffect.Instance[orgTemplateId - 1];
-                //性格
+                //总纲字决
                 short behaviorTypeBonus = config.BehaviorTypeBonuses[_taiwuChar.GetBehaviorType()];
-                result += ToInfoMulti("性格", behaviorTypeBonus, -3);
-                //字决(用/修等)
+                result += ToInfoMulti("总纲字决", behaviorTypeBonus, -3);
+                //正逆练
                 int directionBonus;
                 if(combatSkillDirection>=0)
                 {
                     directionBonus = config.CombatSkillDirectionBonuses[combatSkillDirection];
-                    result += ToInfoMulti("字诀",directionBonus,-3);
+                    result += ToInfoMulti(combatSkillDirection == 0 ? "正练(bug)" : "逆练(bug)", directionBonus,-3);
                 }
                 else
                 {
                     directionBonus = 100;
-                    result += ToInfoMulti("总纲", directionBonus, -3);
+                    //result += ToInfoMulti("无正逆练(bug)", directionBonus, -3);
                 }
+                if (real_combatSkillDirection >= 0)
+                {
+                    result += ToInfoMulti(real_combatSkillDirection == 0 ? "正练(未实装)" : "逆练(未实装)", config.CombatSkillDirectionBonuses[real_combatSkillDirection], -3);
+                }
+                else
+                {
+                    //result += ToInfoMulti("无正逆练(应当)", 100, -3);
+                }
+
                 //性别
                 int genderBonus = ((pageId < 1) ? 100 : ((_taiwuChar.GetGender() == 1) ? config.PageBonusesOfMale[pageId - 1] : config.PageBonusesOfFemale[pageId - 1]));
                 result += ToInfoMulti("性别", genderBonus, -3);
@@ -448,8 +467,11 @@ namespace EffectInfo
                     if (strategyId >= Config.ReadingStrategy.Instance.Count)
                         return result;
                     var config = Config.ReadingStrategy.Instance[strategyId];
-                    efficiencyBonus += config.FollowingPagesEfficiencyChange;
-                    result += ToInfoAdd(config.Name, config.FollowingPagesEfficiencyChange, -3);
+                    if(config.FollowingPagesEfficiencyChange!=0)
+                    {
+                        efficiencyBonus += config.FollowingPagesEfficiencyChange;
+                        result += ToInfoAdd(config.Name, config.FollowingPagesEfficiencyChange, -3);
+                    }
                 }
             }
             for (int i = curPageStartIndex; i < curPageStartIndex + 3; i++)
@@ -458,10 +480,11 @@ namespace EffectInfo
                 if (strategyId >= Config.ReadingStrategy.Instance.Count)
                     return result;
                 if (strategyId >= 0)
-                {
-                    efficiencyBonus += __instance.Bonus[i];
-                    result += ToInfoAdd(Config.ReadingStrategy.Instance[strategyId].Name, __instance.Bonus[i], -3);
-                }
+                    if(__instance.Bonus[i]!=0)
+                    {
+                        efficiencyBonus += __instance.Bonus[i];
+                        result += ToInfoAdd(Config.ReadingStrategy.Instance[strategyId].Name, __instance.Bonus[i], -3);
+                    }
             }
             result =ToInfoPercent("策略",efficiencyBonus,-2)+result;
             return result;

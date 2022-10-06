@@ -173,6 +173,7 @@ namespace EffectInfo
                                         _skillname= Config.LifeSkillType.Instance[_skillType].Name;
                                     }
                                 }
+                                max_attainment += __instance.BaseWorkContribution;
                                 check_value += max_attainment;
                                 tmp += ToInfoAdd($"{_skillname}+{__instance.BaseWorkContribution}", max_attainment, -3);
                             }
