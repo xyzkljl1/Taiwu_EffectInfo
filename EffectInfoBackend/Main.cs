@@ -19,7 +19,7 @@ namespace EffectInfo
     [PluginConfig("EffectInfo", "xyzkljl1", "0.0.2.4-test")]
     public partial class EffectInfoBackend : TaiwuRemakePlugin
     {
-        public static readonly string PATH_ParentDir = "\\Mod\\EffectInfo\\";
+        public static readonly string PATH_ParentDir = "\\Taiwu_Mod\\EffectInfo\\";
         public static readonly string PATH_CharacterAttribute = $"{PATH_ParentDir}Cache_GetCharacterAttribute.txt";
         public static bool On;
         public static bool ShowUseless;
@@ -46,7 +46,7 @@ namespace EffectInfo
 
         public override void Initialize()
         {            
-            var dir = new DirectoryInfo($"{System.IO.Directory.GetCurrentDirectory()}\\..\\{PATH_ParentDir}");
+            var dir = new DirectoryInfo($"{Path.GetTempPath()}{PATH_ParentDir}");
             if(!dir.Exists)
                 dir.Create();
             AdaptableLog.Info($"EffectInfo:{dir}");
@@ -1590,8 +1590,7 @@ namespace EffectInfo
         /*注入*/
         public static void SaveInfo()
         {
-            var dir = System.IO.Directory.GetCurrentDirectory();
-            var path = $"{dir}\\..{PATH_CharacterAttribute}";
+            var path = $"{Path.GetTempPath()}{PATH_CharacterAttribute}";
             AdaptableLog.Info(String.Format("更新角色数据 {0}到{1}", currentCharId, path));
             var tmp = $"{currentCharId}\n";
             foreach (var pair in Cache_FieldText)

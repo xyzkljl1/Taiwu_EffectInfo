@@ -22,7 +22,7 @@ namespace EffectInfo
     [PluginConfig("EffectInfo", "xyzkljl1", "0.0.2.4-test")]
     public partial class EffectInfoFrontend : TaiwuRemakePlugin
     {
-        public static readonly string PATH_ParentDir = "\\Mod\\EffectInfo\\";
+        public static readonly string PATH_ParentDir = "\\Taiwu_Mod\\EffectInfo\\";
         public static readonly string PATH_CharacterAttribute = $"{PATH_ParentDir}Cache_GetCharacterAttribute.txt";
 
         //有的属性不在property里,为了省事，视作在ECharacterPropertyReferencedType后面的enum
@@ -141,7 +141,7 @@ namespace EffectInfo
                 MouseTipDisplayer mouseTipDisplayer=refersArray[i].CGet<MouseTipDisplayer>("MouseTip");
                 if (mouseTipDisplayer != null && mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
                 {
-                    UnityEngine.Debug.Log($"EffectInfo:1记录mouseTipDisplayer {propertyId}");
+                    UnityEngine.Debug.Log($"EffectInfo:记录mouseTipDisplayer {propertyId}");
                     originalText[propertyId] = "";//属性恢复的文本是动态的，此时尚未设置内容
 //                    mouseTipDisplayer.PresetParam[0] = "asdsads";
                     mouseTipDisplayers[propertyId] = mouseTipDisplayer;
@@ -260,8 +260,7 @@ namespace EffectInfo
             //读取本地文件
             {
                 //前端在根目录，后端在backend
-                var dir = System.IO.Directory.GetCurrentDirectory();
-                var path = $"{dir}{PATH_CharacterAttribute}";
+                var path = $"{Path.GetTempPath()}{PATH_CharacterAttribute}";
                 //UnityEngine.Debug.Log(path);
                 //UnityEngine.Debug.Log(File.Exists(path));
                 if (!File.Exists(path))

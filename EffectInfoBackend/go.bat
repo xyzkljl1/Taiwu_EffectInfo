@@ -6,5 +6,6 @@ set Plugin=%2%
 ::echo %1%
 ::echo %2%
 xcopy /y "..\\config.lua" "%TAIWUDIR%\\"
+xcopy /y "..\\cover.jpg" "%TAIWUDIR%\\"
 ::xcopy /y "..\\settings.lua" "%TAIWUDIR%\\Mod\\%Project%\\"
 xcopy /y "%Plugin%" "%TAIWUDIR%\\Plugins\\"

@@ -47,7 +47,7 @@ namespace EffectInfo
             }
             __instance.AsynchMethodCall(MyDomainIds.Taiwu, MY_MAGIC_NUMBER_GetReadingEfficiency, delegate (int offset, RawDataPool dataPool)
             {
-                var path = $"{Directory.GetCurrentDirectory()}{PATH_GetReadingEfficiency}";
+                var path = $"{Path.GetTempPath()}{PATH_GetReadingEfficiency}";
                 //UnityEngine.Debug.Log(path);
                 var text = "";
                 try

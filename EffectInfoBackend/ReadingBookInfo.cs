@@ -118,7 +118,7 @@ namespace EffectInfo
                 else
                     result += ToInfo("已读完", "-", -1);
             }
-            var path = $"{Directory.GetCurrentDirectory()}\\..{PATH_GetReadingEfficiency}";
+            var path = $"{Path.GetTempPath()}{PATH_GetReadingEfficiency}";
             for (int i = 0; i < 5; ++i)
                 try
                 {
@@ -149,6 +149,7 @@ namespace EffectInfo
             var feat_result = "";
 
             int building_bonus = 0;
+            string building_result = "";
 
             var attainment_result = "";
             short skillAttainment=0;
@@ -181,8 +182,10 @@ namespace EffectInfo
 				SpecifyBuildingEffect buildingEffect = DomainManager.Building.GetSpecifyBuildingEffect(_taiwuChar.GetLocation());
                 if(buildingEffect != null)
                     building_bonus = buildingEffect.AddReadingLifeSkillBookEfficiency.Items[book.GetLifeSkillType()];
+                //由于建筑很少，不计算下一级了
+                building_result = "";
             }
-			else
+            else
 			{
 				short skillTemplateId = book.GetCombatSkillTemplateId();
 				Config.CombatSkillItem skillConfig = Config.CombatSkill.Instance[skillTemplateId];
@@ -262,7 +265,12 @@ namespace EffectInfo
                 //门派
                 sbyte sectId = Config.CombatSkill.Instance[book.GetCombatSkillTemplateId()].SectId;
                 sect_result = CalcReadingSpeedSectApprovalFactorInfo(_taiwuChar,out sect_factor, sectId, (sbyte)((curReadingPage == 0) ? direction : -1), (sbyte)(curReadingPage - 1), isInBattle);
-			}
+                //此项未实装
+                SpecifyBuildingEffect buildingEffect = DomainManager.Building.GetSpecifyBuildingEffect(_taiwuChar.GetLocation());
+                if (buildingEffect != null)
+                    building_result+= ToInfoAdd("建筑(未实装)", buildingEffect.AddReadingCombatSkillBookEfficiency, -3);
+
+            }
             //特性、建筑、参考书
             {
                 int refBookBonusSpeed = 0;
@@ -273,7 +281,7 @@ namespace EffectInfo
                 result += ToInfoAdd("特性", featBonusSpeed, -2);
                 result += feat_result;
                 result += ToInfoAdd("建筑", building_bonus, -2);
-                //result += building_result;
+                result += building_result;
                 result += refBook_result;
             }
             {//造诣
