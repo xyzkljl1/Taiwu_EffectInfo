@@ -830,6 +830,184 @@ namespace EffectInfo
 
 		public static ushort CastCostNeiliAllocation = 0;
 	}
+	//同上，BuildingBlock.DefKeys
+	public static class MyBuildingBlockDefKey
+    {
+		public static void Init()
+		{
+			foreach (var field in typeof(MyBuildingBlockDefKey).GetFields(BindingFlags.Static | BindingFlags.Public))
+				if (field.FieldType == typeof(short))
+                {
+					var field2=typeof(Config.BuildingBlock.DefKey).GetField(field.Name,BindingFlags.Static | BindingFlags.Public);
+					if (field2!=null)
+					{
+						var value = field2.GetValue(null);
+						field.SetValue(null, value);
+					}
+				}
+		}
+		public static short EmptyBlock = -1;
+
+		public static short NormalResourceBegin = -1;
+
+		public static short SpecialResourceBegin = -1;
+
+		public static short UselessResourceBegin = -1;
+
+		public static short Ruins = -1;
+
+		public static short TaiwuVillage = -1;
+
+		public static short TaiwuShrine = -1;
+
+		public static short Residence = -1;
+
+		public static short ComfortableHouse = -1;
+
+		public static short Warehouse = -1;
+
+		public static short ChickenCoop = -1;
+
+		public static short SamsaraPlatform = -1;
+
+		public static short TeaHorseCaravan = -1;
+
+		public static short KungfuPracticeRoom = -1;
+
+		public static short IceWall = -1;
+
+		public static short PhoenixPlatform = -1;
+
+		public static short StrategyRoom = -1;
+
+		public static short BookCollectionRoom = -1;
+
+		public static short MakeupRoom = -1;
+
+		public static short BirthDeathStreamer = -1;
+
+		public static short Hospital = -1;
+
+		public static short PoisonHospital = -1;
+
+		public static short LifeElixirRoom = -1;
+
+		public static short SutraReadingRoom = -1;
+
+		public static short Kitchen = -1;
+
+		public static short GamblingHouse = -1;
+
+		public static short Brothel = -1;
+
+		public static short Pawnshop = -1;
+
+		public static short ExcellentPersonShop = -1;
+
+		public static short Jingcheng = -1;
+
+		public static short Chengdu = -1;
+
+		public static short Guizhou = -1;
+
+		public static short Xiangyang = -1;
+
+		public static short Taiyuan = -1;
+
+		public static short Guangzhou = -1;
+
+		public static short Qingzhou = -1;
+
+		public static short Jiangling = -1;
+
+		public static short Fuzhou = -1;
+
+		public static short LiaoYang = -1;
+
+		public static short Qinzhou = -1;
+
+		public static short Dali = -1;
+
+		public static short Shouchun = -1;
+
+		public static short Hangzhou = -1;
+
+		public static short Yangzhou = -1;
+
+		public static short Shaolin = -1;
+
+		public static short Emei = -1;
+
+		public static short Baihua = -1;
+
+		public static short Wudang = -1;
+
+		public static short Yuanshan = -1;
+
+		public static short Shixiang = -1;
+
+		public static short Ranshan = -1;
+
+		public static short Xuannv = -1;
+
+		public static short Zhujian = -1;
+
+		public static short Kongsang = -1;
+
+		public static short Jingang = -1;
+
+		public static short Wuxian = -1;
+
+		public static short Jieqing = -1;
+
+		public static short Fulong = -1;
+
+		public static short Xuehou = -1;
+
+		public static short Cunzhuang = -1;
+
+		public static short Shizhen = -1;
+
+		public static short Guanzhai = -1;
+
+		public static short BambooHouse1 = -1;
+
+		public static short BambooHouse2 = -1;
+
+		public static short ShaolinSpecialBuilding = -1;
+
+		public static short EmeiSpecialBuilding = -1;
+
+		public static short BaihuaSpecialBuilding = -1;
+
+		public static short WudangSpecialBuilding = -1;
+
+		public static short YuanshanSpecialBuilding = -1;
+
+		public static short ShixiangSpecialBuilding = -1;
+
+		public static short RanshanSpecialBuilding = -1;
+
+		public static short XuannvSpecialBuilding = -1;
+
+		public static short ZhujianSpecialBuilding = -1;
+
+		public static short KongsangSpecialBuilding = -1;
+
+		public static short JingangSpecialBuilding = -1;
+
+		public static short WuxianSpecialBuilding = -1;
+
+		public static short JieqingSpecialBuilding = -1;
+
+		public static short FulongSpecialBuilding = -1;
+
+		public static short XuehouSpecialBuilding = -1;
+
+		public static short MerchantBuildingBegin = -1;
+
+		public static short MerchantBuildingEnd = -1;
+	}
 	public partial class EffectInfoBackend : TaiwuRemakePlugin
     {
 		public static string valueSumType2Text(sbyte valueSumType)

@@ -34,6 +34,7 @@ namespace EffectInfo
             RecoverMainAttribute3 = ECharacterPropertyReferencedType.Count + 4,
             RecoverMainAttribute4 = ECharacterPropertyReferencedType.Count + 5,
             RecoverMainAttribute5 = ECharacterPropertyReferencedType.Count + 6,
+
         }
         public static bool On = false;
         public static bool IsClean=true;//临时 
@@ -85,6 +86,8 @@ namespace EffectInfo
             {"__RecoveryMainAttribute3",(short)CustomPropertyIdEnum.RecoverMainAttribute3 },
             {"__RecoveryMainAttribute4",(short)CustomPropertyIdEnum.RecoverMainAttribute4 },
             {"__RecoveryMainAttribute5",(short)CustomPropertyIdEnum.RecoverMainAttribute5 },
+            {"__Fertility",(short)ECharacterPropertyReferencedType.Fertility },
+
         };
         public override void Dispose()
         {
@@ -97,11 +100,6 @@ namespace EffectInfo
         {
             MyDomainIds.Init(); 
             harmony = Harmony.CreateAndPatchAll(typeof(EffectInfoFrontend));
-            //调试用代码
-            Type type = typeof(EffectInfoFrontend);
-            MethodInfo method_info = type.GetMethod("DebugInitialize", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-            if (method_info != null)
-                method_info.Invoke(null, new object[] { });
         }
         public override void OnModSettingUpdate()
         {
@@ -183,24 +181,41 @@ namespace EffectInfo
                 return;
             if (duringSkillBreakPlateUpdate)
                 return;
-            short propertyId = (short)ECharacterPropertyReferencedType.Attraction;
             var _uiElements=GetPrivateField<List<CharacterUIElement>>(__instance, "_uiElements");
             foreach(var _uiElement in _uiElements)
                 if(_uiElement.GetType() == typeof(CharacterDetailInfo))
                 {
                     var detail_info = (CharacterDetailInfo)_uiElement;
-                    var character_charm=GetPrivateField<CharacterCharm>(detail_info, "_characterCharm");
-                    var info_item = GetPrivateField<InfoItem>(character_charm, "_infoItem");
-                    MouseTipDisplayer mouseTipDisplayer = info_item.GetMouseTip();
-                    if (mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
+                    //魅力
                     {
-                        UnityEngine.Debug.Log($"EffectInfo:3记录mouseTipDisplayer {propertyId}");
-                        //因为原有文本太长影响观感，手动缩一下
-                        //由于每次都会重新创建，不能从originalText获取
-                        //这游戏更新文本从来不写公告，醉了
-                        originalText[propertyId] = CharacterPropertyDisplay.Instance[propertyId].Desc.Replace("\n<SpName=mousetip_meili", "<SpName=mousetip_meili");
-                        mouseTipDisplayers[propertyId] = mouseTipDisplayer;
-                        //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
+                        short propertyId = (short)ECharacterPropertyReferencedType.Attraction;
+                        var character_charm = GetPrivateField<CharacterCharm>(detail_info, "_characterCharm");
+                        var info_item = GetPrivateField<InfoItem>(character_charm, "_infoItem");
+                        MouseTipDisplayer mouseTipDisplayer = info_item.GetMouseTip();
+                        if (mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
+                        {
+                            UnityEngine.Debug.Log($"EffectInfo:3记录mouseTipDisplayer {propertyId}");
+                            //因为原有文本太长影响观感，手动缩一下
+                            //由于每次都会重新创建，不能从originalText获取
+                            //这游戏更新文本从来不写公告，醉了
+                            originalText[propertyId] = CharacterPropertyDisplay.Instance[propertyId].Desc.Replace("\n<SpName=mousetip_meili", "<SpName=mousetip_meili");
+                            mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                            //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
+                        }
+                    }
+                    //性别
+                    {
+                        short propertyId = (short)ECharacterPropertyReferencedType.Fertility;//用年龄的提示框显示生育率
+                        var character_gender = GetPrivateField<CharacterGender>(detail_info, "_characterGender");
+                        var info_item = GetPrivateField<InfoItem>(character_gender, "_infoItem");
+                        MouseTipDisplayer mouseTipDisplayer = info_item.GetMouseTip();
+                        if (mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
+                        {
+                            UnityEngine.Debug.Log($"EffectInfo:4记录mouseTipDisplayer {propertyId}");
+                            originalText[propertyId] = LocalStringManager.Get(1450); //由于每次都会重新创建，不能从originalText获取
+                            mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                            //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
+                        }
                     }
                     break;
                 }

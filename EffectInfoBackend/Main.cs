@@ -1,6 +1,7 @@
 ﻿using GameData.Common;
 using GameData.Domains;
 using GameData.Domains.Character;
+using GameData.Domains.Character.Ai;
 using GameData.Domains.Character.AvatarSystem;
 using GameData.Domains.Combat;
 using GameData.Domains.CombatSkill;
@@ -55,6 +56,7 @@ namespace EffectInfo
             harmony = Harmony.CreateAndPatchAll(typeof(EffectInfoBackend));
             MyAffectedDataFieldIds.Init();
             MyFieldIds.Init();
+            MyBuildingBlockDefKey.Init();
             MonitoredFieldIds.Add(MyFieldIds.HitValues);
             MonitoredFieldIds.Add(MyFieldIds.AvoidValues);
             MonitoredFieldIds.Add(MyFieldIds.Attraction);
@@ -71,6 +73,7 @@ namespace EffectInfo
             MonitoredFieldIds.Add(MyFieldIds.InnerRatio);
             MonitoredFieldIds.Add(MyFieldIds.RecoveryOfQiDisorder);
             MonitoredFieldIds.Add(MyFieldIds.RecoveryOfMainAttribute);
+            MonitoredFieldIds.Add(MyFieldIds.Fertility);
         }
         public override void OnModSettingUpdate()
         {
@@ -232,7 +235,7 @@ namespace EffectInfo
             var tmp = "";
             //modifyType=1时获得的是乘算加值，在乘算项目下算作加/减值，所以还是显示为加/减值
             tmp += ToInfoAdd("效果" + valueSumType2Text(valueSumType), value, 2);
-            tmp += GetModifyValueInfo(ref dirty_tag, charId, fieldId, valueSumType);
+            tmp += GetModifyValueInfo(ref dirty_tag, charId, fieldId, (sbyte)modifyType, customParam0, customParam1, customParam2, valueSumType);
             return tmp;
         }
         //不知道SpecialEffectBase的名字如何获得
@@ -271,7 +274,11 @@ namespace EffectInfo
                                 if (combatSkillId >= 0)
                                     name = GetCombatSkillName(combatSkillId);
                                 else
-                                    name = effect.GetType().ToString();
+                                {
+                                    name = effect.GetType().ToString();//此处是带namespace的完整名字
+                                    if(name.Contains('.'))
+                                        name=name.Substring(name.LastIndexOf('.')+1);
+                                }
                                 dirty_tag = true;
                                 result += ToInfoAdd(name, value, 3);
                             }
@@ -908,7 +915,8 @@ namespace EffectInfo
                 check_value = 900;
                 result += ToInfo("上限", "<=900", 1);
             }
-            return $"\n{result}\n{ToInfoAdd("总和校验值", check_value, 1)}__Attraction\n";
+            var check_value2 = character.GetAttraction();
+            return $"\n{result}\n{ToInfo($"总合校验值{check_value}/{check_value2}", check_value == check_value2 ? "" : "有误,请报bug", 1)}__Attraction\n";
         }
         unsafe public static string GetRecoveryOfStanceAndBreathInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
@@ -1119,10 +1127,13 @@ namespace EffectInfo
                         int preCharId = preexistenceCharIds.CharIds[j];
                         DeadCharacter preChar = DomainManager.Character.GetDeadCharacter(preCharId);
                         //因为游戏代码有bug，这里就是=，为了跟显示的数值一致所以也用=，实际应该是+=
-                        value = preChar.BaseMainAttributes.Items[j]/10;
+                        value = preChar.BaseMainAttributes.Items[i]/10;
                         var name = preChar.FullName.GetName(preChar.Gender, DomainManager.World.GetCustomTexts());
-                        tmp += ToInfoAdd($"{name.Item1}(仅最后生效)", value,2);
-                        dirty_tag= true;
+                        if(j== preexistenceCharIds.Count-1)
+                            tmp += ToInfoAdd($"{name.Item1}", value,2);
+                        else
+                            tmp += ToInfoAdd($"{name.Item1}(未实装)", value, 2);
+                        dirty_tag = true;
                     }
                     check_value[i] += value;
                     if (ShowUseless||dirty_tag)
@@ -1586,6 +1597,84 @@ namespace EffectInfo
                     tmp += result[i] + ToInfoAdd("总合校验值", check_value[i],1) +$"__RecoveryMainAttribute{i}\n";
                 return tmp;
             }
+        }
+        unsafe public static string GetFertilityInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
+        {
+            var result = "";
+            int check_value = 100;
+            result += ToInfoAdd("基础", check_value, 2);
+            var propertyType = ECharacterPropertyReferencedType.Fertility;
+            {
+                var sum = 0;
+                bool dirty_tag=false;
+                var tmp=PackGetCommonPropertyBonusInfo(ref sum, ref dirty_tag, character, propertyType, (sbyte)0);
+                check_value += sum;
+                if(dirty_tag||ShowUseless)
+                    result += tmp;
+            }
+            {
+                var sum = 0;
+                bool dirty_tag = false;
+                var tmp = PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType, (sbyte)0);
+                check_value += sum;
+                if (dirty_tag || ShowUseless)
+                    result += tmp;
+            }
+            {
+                short physiologicalAge = character.GetPhysiologicalAge();
+                short clampedAge = CallPrivateStaticMethod<short>(character, "GetClampedAgeOfAgeEffect", new object[] { physiologicalAge });
+                Config.AgeEffectItem ageEffectCfg = Config.AgeEffect.Instance[clampedAge];
+                var value=((character.GetGender() == 1) ? ageEffectCfg.FertilityMale : ageEffectCfg.FertilityFemale);
+                check_value += value;
+                if(ShowUseless||value!=0)
+                    result += ToInfoAdd($"等效年龄{clampedAge}",value,2);
+            }
+            if (check_value < 0)
+            {
+                check_value = 0;
+                result += ToInfoMin("下限", 0, 2);
+            }
+            if (check_value >100)
+            {
+                check_value = 100;
+                result += ToInfoMax("上限", 100, 2);
+            }
+            result = ToInfoPercent("基础生育率", check_value, 1) + result;
+            var check_value2 = character.GetFertility();
+            result += ToInfo($"总合校验值{check_value}/{check_value2}", check_value== check_value2 ? "":"有误,请报bug",1);            
+            result += "\n\n";
+            //Character.OfflineExecuteFixedAction_MakeLove_Mutual
+            result += ToInfo("夫妻春宵概率", "×??", 1);
+            result += ToInfoAdd("我方基础生育率", check_value, 2);
+            result += ToInfo("对方基础生育率", "??", 2);
+
+            result += ToInfo("爱慕春宵概率", "×??", 1);
+            result += ToInfoAdd("我方基础生育率", check_value, 2);
+            var behavior=Config.BehaviorType.Instance[character.GetBehaviorType()].Name;
+            result += ToInfoPercent($"爱慕倍率({behavior})", AiHelper.FixedActionConstants.BoyAndGirlFriendMakeLoveBaseChance[character.GetBehaviorType()], 2);
+            result += ToInfo("对方基础生育率", "×??", 2);
+
+            result += ToInfoPercent("强奸春宵概率", (check_value* AiHelper.FixedActionConstants.RapeBaseChance[character.GetBehaviorType()])/100, 1);
+            result += ToInfoAdd("我方基础生育率", check_value, 2);
+            result += ToInfoPercent($"强奸倍率({behavior})", AiHelper.FixedActionConstants.RapeBaseChance[character.GetBehaviorType()], 2);
+
+            //Character.OfflineMakeLove
+            result += ToInfo("怀孕概率", "×??", 1);
+            result += ToInfoAdd("基础", 60, 2);
+            result += ToInfoDivision("如果是强奸", 3, 2);
+            result += ToInfoPercent("我方基础生育率", check_value, 2);
+            result += ToInfo("对方基础生育率", "×??", 2);
+            result += ToInfoMulti("全局修正", DomainManager.World.GetProbAdjustOfCreatingCharacter(),2);
+
+            if(character.GetGender()==0)
+            {
+                int tmp=0;
+                if (!DomainManager.Character.TryGetElement_PregnancyLockEndDates(character.GetId(), out tmp))//返回false表示可怀孕
+                    tmp = 0;
+                result += ToInfoAdd("距离下次可怀孕",tmp,1);
+            }
+            result += $"__Fertility\n";
+            return result;
         }
         /*注入*/
         public static void SaveInfo()

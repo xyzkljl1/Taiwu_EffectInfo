@@ -3,6 +3,8 @@ using GameData.Domains;
 using GameData.Domains.Building;
 using GameData.Domains.Character;
 using GameData.Domains.Item;
+using GameData.Domains.Organization;
+using GameData.Domains.Organization.Display;
 using GameData.Domains.SpecialEffect;
 using GameData.GameDataBridge;
 using GameData.Utilities;
@@ -93,6 +95,8 @@ namespace EffectInfo
                             total_attainment += value;
                             tmp += ToInfoAdd($"{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
                         }
+                        else if(charId >= 0)
+                            tmp += ToInfo("本月无法工作", "-", -2);
                     }
                     tmp += ToInfoMulti("倍率", 0.01, -3);
                     //此处CalcResourceChangeFunc的isAverage参数恒为false
@@ -135,21 +139,22 @@ namespace EffectInfo
         }
         //经营产出,实际是个整数，达到上限时产出一个物品
         //GetBuildingAttainment
-        public static void GetBuildingShopOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
+        public unsafe static void GetBuildingShopOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
         {
             var result = "";
             int check_value = 0;
+            
+            int shop_period =0;
             BuildingBlockData blockData;
             if (__instance.TryGetElement_BuildingBlocks(blockKey, out blockData))
             {
                 var tmp = "";
                 Config.BuildingBlockItem config = Config.BuildingBlock.Instance[blockData.TemplateId];
-                bool use_max_attainment = false;
-                if (config.DependBuildings.Count > 0 && config.DependBuildings[0] == 52 && config.IsShop)//使用最大造诣
-                    use_max_attainment = true;
+                bool use_max_combat_attainment = false;
+                if (config.DependBuildings.Count > 0 && config.DependBuildings[0] == MyBuildingBlockDefKey.KungfuPracticeRoom && config.IsShop)//练功房附属建筑使用最大武学造诣
+                    use_max_combat_attainment = true;
                 //造诣
                 {
-
                     sbyte lifeSkillType = Config.BuildingBlock.Instance[blockData.TemplateId].RequireLifeSkillType;
                     var lifeSkillName = Config.LifeSkillType.Instance[lifeSkillType].Name;
                     CharacterList managerList;
@@ -160,22 +165,22 @@ namespace EffectInfo
                         if (charId >= 0 && DomainManager.Taiwu.CanWork(charId))
                         {
                             GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
-                            if(use_max_attainment)
+                            if(use_max_combat_attainment)
                             {
                                 var _skillname = "";
                                 var max_attainment = 0;
                                 for (sbyte _skillType=0;_skillType<16;++_skillType)
                                 {
-                                    var value = manageChar.GetLifeSkillAttainment(_skillType);
+                                    var value = manageChar.GetCombatSkillAttainment(_skillType);
                                     if(value > max_attainment)
                                     {
                                         max_attainment=value;
-                                        _skillname= Config.LifeSkillType.Instance[_skillType].Name;
+                                        _skillname= Config.CombatSkillType.Instance[_skillType].Name;
                                     }
                                 }
                                 max_attainment += __instance.BaseWorkContribution;
                                 check_value += max_attainment;
-                                tmp += ToInfoAdd($"{_skillname}+{__instance.BaseWorkContribution}", max_attainment, -3);
+                                tmp += ToInfoAdd($"{_skillname}+{__instance.BaseWorkContribution}", max_attainment, -2);
                             }
                             else
                             {
@@ -184,6 +189,8 @@ namespace EffectInfo
                                 tmp += ToInfoAdd($"{lifeSkillName}+{__instance.BaseWorkContribution}", value, -2);
                             }
                         }
+                        else if(charId >= 0)
+                            tmp += ToInfo("本月无法工作", "-", -2);
                     }
                     //此处isAverage恒为false
                 }
@@ -191,6 +198,182 @@ namespace EffectInfo
                 tmp += ToInfoDivision("建筑产出需求", config.MaxProduceValue, -1);
                 double double_check_value = (double)100.0 * (double)check_value / config.MaxProduceValue;
                 result = tmp + ToInfo("总合校验值", $"{double_check_value.ToString("f2")}%", -1);
+                //每回合最多收获一次且溢出轻灵，
+                if(check_value>0)
+                {
+                    shop_period = (config.MaxProduceValue+check_value-1) / check_value;//向上取整
+                    result += ToInfo("等效效率(溢出进度不保留)", $"{((double)100/shop_period).ToString("f2")}%", -1);
+                }
+                result += "\n";
+                //成功率和基础产出
+                if(config.SuccesEvent.Count > 0)
+                {
+                    Config.ShopEventItem shopEventConfig = Config.ShopEvent.Instance[config.SuccesEvent[0]];
+                    var _shopManagerDict = GetPrivateValue<Dictionary<BuildingBlockKey, CharacterList>>(__instance, "_shopManagerDict");
+                    if (blockData.TemplateId!=MyBuildingBlockDefKey.BookCollectionRoom)
+                        if(config.IsShop&&_shopManagerDict.ContainsKey(blockKey))
+                        {
+                            if (shopEventConfig.ResourceGoods != -1)//直接收入资源类型的建筑.ResourceGoods=6为金钱，=7为威望
+                            {
+                                if (blockData.TemplateId == MyBuildingBlockDefKey.GamblingHouse)
+                                {
+                                    double expect_resource = 0;
+                                    int success_rate = 0;
+                                    {//成功率
+                                        tmp = "";
+                                        int maxPersonalities = 0;
+                                        CharacterList managerList;
+                                        DomainManager.Building.TryGetElement_ShopManagerDict(blockKey, out managerList);
+                                        for (int i = 0; i < managerList.GetCount(); i++)
+                                        {
+                                            int charId = managerList.GetCollection()[i];
+                                            if (charId >= 0 && DomainManager.Taiwu.CanWork(charId))
+                                            {
+                                                GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
+                                                Personalities personalities = manageChar.GetPersonalities();
+                                                int sum = 0;
+                                                for (int j = 0; j < 7; j++)
+                                                    sum += personalities.Items[j];
+                                                if (sum > maxPersonalities)
+                                                    maxPersonalities = sum;
+                                                tmp += ToInfoAdd($"七元加和",sum,-3);
+                                            }
+                                            else if(charId >= 0)
+                                                tmp += ToInfo("本月无法工作", "-", -2);
+                                        }
+                                        tmp = ToInfoAdd("最大七元",maxPersonalities,-2)+tmp;
+                                        tmp += ToInfoDivision("倍率", 5,-2);
+                                        success_rate = Math.Clamp(maxPersonalities / 5,0,100);
+                                        result += ToInfoPercent("成功率",maxPersonalities/5,-1)+tmp;
+                                    }
+                                    result += "\n";
+                                    //产出
+                                    {
+                                        tmp = "";
+                                        int attainment=__instance.GetBuildingAttainment(blockData,blockKey);
+                                        tmp += ToInfoAdd("造诣", attainment,-2);
+                                        tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
+                                        tmp += ToInfoMulti("如果成功", (double)3,-2);
+                                        tmp += ToInfoMulti("如果失败", (double)0.33,-2);
+                                        short value_a = (short)((double)(attainment * blockData.Level) * 3);
+                                        short value_b = (short)((double)(attainment * blockData.Level) * 0.33);
+                                        result += ToInfo("收入",$"{value_a}/{value_b}",-1) + tmp;
+                                        expect_resource = (success_rate * value_a + (100 - success_rate) * value_b) / (double)100;
+                                    }
+
+                                    expect_resource /= shop_period;
+                                    result+="\n";
+                                    result += ToInfo("每月收入期望", expect_resource.ToString("f2"),-1);
+                                }
+                                else if (blockData.TemplateId == MyBuildingBlockDefKey.Brothel)//青楼
+                                {
+                                    double expect_resource = 0;
+                                    int success_rate = 0;
+                                    {//成功率
+                                        tmp = "";
+                                        int maxAttraction = 0;
+                                        CharacterList managerList;
+                                        DomainManager.Building.TryGetElement_ShopManagerDict(blockKey, out managerList);
+                                        for (int i = 0; i < managerList.GetCount(); i++)
+                                        {
+                                            int charId = managerList.GetCollection()[i];
+                                            if (charId >= 0 && DomainManager.Taiwu.CanWork(charId))
+                                            {
+                                                GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
+                                                Personalities personalities = manageChar.GetPersonalities();
+                                                int attraction = manageChar.GetAttraction();
+                                                if (attraction > maxAttraction)
+                                                    maxAttraction = attraction;
+                                                tmp += ToInfoAdd($"魅力", attraction, -3);
+                                            }
+                                            else if(charId >= 0)
+                                                tmp += ToInfo("本月无法工作", "-", -2);
+                                        }
+                                        tmp = ToInfoAdd("最大魅力", maxAttraction, -2) + tmp;
+                                        tmp += ToInfoDivision("倍率", 20, -2);
+                                        success_rate=Math.Clamp(maxAttraction/20,0,100);
+                                        result += ToInfoPercent("成功率", success_rate, -1) + tmp;
+                                    }
+                                    result += "\n";
+                                    //产出
+                                    {
+                                        tmp = "";
+                                        int attainment = __instance.GetBuildingAttainment(blockData, blockKey);
+                                        tmp += ToInfoAdd("造诣", attainment, -2);
+                                        tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
+                                        tmp += ToInfoMulti("如果成功", (double)2, -2);
+                                        tmp += ToInfoMulti("如果失败", (double)0.5, -2);
+                                        short value_a = (short)((double)(attainment * blockData.Level) * 2);
+                                        short value_b = (short)((double)(attainment * blockData.Level) * 0.5);
+                                        result += ToInfo("基础收入", $"{value_a}/{value_b}", -1)+tmp;
+                                        expect_resource = (success_rate * value_a + (100 - success_rate) * value_b) / (double)100;
+                                    }
+                                    expect_resource /= shop_period;
+                                    result += "\n";
+                                    result += ToInfo("每月收入期望", expect_resource.ToString("f2"), -1);
+                                }
+                                else
+                                {
+                                    //注意此处的平均是除mangerList.GetCount,即可能的managers数量，而非已有的manager数量，即总是除3
+                                    int attainment_avg = __instance.GetBuildingAttainment(blockData, blockKey, true);
+                                    int attainment_total = __instance.GetBuildingAttainment(blockData, blockKey, false);
+                                    int success_rate = 0;
+                                    {//成功率
+                                            tmp = "";
+                                        CharacterList managerList;
+                                        DomainManager.Building.TryGetElement_ShopManagerDict(blockKey, out managerList);
+                                        tmp = ToInfoAdd($"总造诣/{managerList.GetCount()}", attainment_avg, -2) + tmp;
+                                        tmp += ToInfoDivision("倍率", 3, -2);
+                                        success_rate=Math.Clamp(attainment_avg/3,0,100);
+                                        result += ToInfoPercent("成功率", success_rate, -1) + tmp;
+                                    }
+                                    result += "\n";
+                                    //产出
+                                    {
+                                        result += ToInfo("收入", "无法计算", -1);
+                                        result += ToInfoMulti("建筑等级", blockData.Level, -2);
+                                        result += ToInfoMulti("总合造诣/2+100", attainment_total / 2 + 100, -2);
+                                        result += ToInfo("随机", "×80%~150%", -2);
+                                        List<SettlementDisplayData> settlements = DomainManager.Taiwu.GetAllVisitedSettlements();
+                                        if (config.RequireSafety != 0)
+                                        {
+                                            int additon = 0;
+                                            if (settlements.Count > 10)
+                                                settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
+                                            for (int i = 0; i < Math.Min(10, settlements.Count); i++)
+                                                if (settlements[i].SettlementId >= 0)
+                                                {
+                                                    Settlement settlement2 = DomainManager.Organization.GetSettlement((short)settlements[i].SettlementId);
+                                                    additon = ((config.RequireSafety <= 0) ? (additon + ((settlement2.GetSafety() < -config.RequireSafety) ? ((-config.RequireSafety - settlement2.GetSafety()) / 5 + 5) : 0)) : (additon + ((settlement2.GetSafety() > config.RequireSafety) ? ((settlement2.GetSafety() - config.RequireSafety) / 5 + 5) : 0)));
+                                                }
+                                            result += ToInfoPercent("访客加成-安定(浮动)",additon+100, -2);
+                                        }
+                                        else if(config.RequireCulture != 0)
+                                        {
+                                            int additon2 = 0;
+                                            if (settlements.Count > 10)
+                                            {
+                                                settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
+                                            }
+                                            for (int j = 0; j < Math.Min(10, settlements.Count); j++)
+                                            {
+                                                if (settlements[j].SettlementId >= 0)
+                                                {
+                                                    Settlement settlement = DomainManager.Organization.GetSettlement((short)settlements[j].SettlementId);
+                                                    additon2 = ((config.RequireSafety <= 0) ? (additon2 + ((settlement.GetCulture() < -config.RequireSafety) ? ((-config.RequireSafety - settlement.GetCulture()) / 5 + 5) : 0)) : (additon2 + ((settlement.GetCulture() > config.RequireSafety) ? ((settlement.GetCulture() - config.RequireSafety) / 5 + 5) : 0)));
+                                                }
+                                            }
+                                            result += ToInfoPercent("访客加成-文化(浮动)", additon2 + 100, -2);
+                                        }
+                                        if (shopEventConfig.ResourceGoods == 7)//威望
+                                            result += ToInfoDivision("倍率(威望)(未实装)", 10, -2);
+                                        result += ToInfoMulti("如果成功", 1, -2);
+                                        result += ToInfoMulti("如果失败", 0, -2);
+                                    }
+                                }
+                            }
+                        }
+                }
             }
             var path = $"{Path.GetTempPath()}{PATH_GetShopOutput}";
             for (int i = 0; i < 5; ++i)

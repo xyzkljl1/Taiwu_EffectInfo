@@ -363,7 +363,8 @@ namespace EffectInfo
                 if(combatSkillDirection>=0)
                 {
                     directionBonus = config.CombatSkillDirectionBonuses[combatSkillDirection];
-                    result += ToInfoMulti(combatSkillDirection == 0 ? "正练(bug)" : "逆练(bug)", directionBonus,-3);
+                    if(directionBonus!=100)
+                        result += ToInfoMulti(combatSkillDirection == 0 ? "正练(bug)" : "逆练(bug)", directionBonus,-3);
                 }
                 else
                 {
@@ -390,7 +391,7 @@ namespace EffectInfo
                 {
                     int battleGenderBonus = ((pageId < 1) ? 100 : ((_taiwuChar.GetGender() == 1) ? config.ActualCombatBonusOfMale : config.ActualCombatBonusOfFemale));
                     factor = factor * battleGenderBonus / 100;
-                    result += ToInfoPercent("战斗性别奖励", battleGenderBonus, -3);
+                    result += ToInfoPercent("性别奖励(战斗)", battleGenderBonus, -3);
                 }
             }
             else
