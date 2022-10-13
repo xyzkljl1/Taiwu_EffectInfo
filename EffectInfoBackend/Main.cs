@@ -916,7 +916,7 @@ namespace EffectInfo
                 result += ToInfo("上限", "<=900", 1);
             }
             var check_value2 = character.GetAttraction();
-            return $"\n{result}\n{ToInfo($"总合校验值{check_value}/{check_value2}", check_value == check_value2 ? "" : "有误,请报bug", 1)}__Attraction\n";
+            return $"\n{result}\n{ToInfo($"总合校验值{check_value}/{check_value2}", check_value == check_value2 ? "" : "不一致!", 1)}__Attraction\n";
         }
         unsafe public static string GetRecoveryOfStanceAndBreathInfo(CharacterDomain __instance, GameData.Domains.Character.Character character)
         {
@@ -1129,7 +1129,7 @@ namespace EffectInfo
                         //因为游戏代码有bug，这里就是=，为了跟显示的数值一致所以也用=，实际应该是+=
                         value = preChar.BaseMainAttributes.Items[i]/10;
                         var name = preChar.FullName.GetName(preChar.Gender, DomainManager.World.GetCustomTexts());
-                        if(j== preexistenceCharIds.Count-1)
+                        if (j== preexistenceCharIds.Count-1)
                             tmp += ToInfoAdd($"{name.Item1}", value,2);
                         else
                             tmp += ToInfoAdd($"{name.Item1}(未实装)", value, 2);
@@ -1641,7 +1641,7 @@ namespace EffectInfo
             }
             result = ToInfoPercent("基础生育率", check_value, 1) + result;
             var check_value2 = character.GetFertility();
-            result += ToInfo($"总合校验值{check_value}/{check_value2}", check_value== check_value2 ? "":"有误,请报bug",1);            
+            result += ToInfo($"总合校验值{check_value}/{check_value2}", check_value== check_value2 ? "":"不一致!",1);            
             result += "\n\n";
             //Character.OfflineExecuteFixedAction_MakeLove_Mutual
             result += ToInfo("夫妻春宵概率", "×??", 1);
@@ -1669,9 +1669,8 @@ namespace EffectInfo
             if(character.GetGender()==0)
             {
                 int tmp=0;
-                if (!DomainManager.Character.TryGetElement_PregnancyLockEndDates(character.GetId(), out tmp))//返回false表示可怀孕
-                    tmp = 0;
-                result += ToInfoAdd("距离下次可怀孕",tmp,1);
+                if (DomainManager.Character.TryGetElement_PregnancyLockEndDates(character.GetId(), out tmp))//返回false表示可怀孕
+                    result += ToInfo("该角色处于怀孕CD","",1);
             }
             result += $"__Fertility\n";
             return result;

@@ -1104,13 +1104,13 @@ namespace EffectInfo
                 result += $"<color=#grey>\t·{title}\t\t\t\t\t{item}</color>\n";
 			else if (levelabs == 3)
             {
-				if (title.Length > 6)
+				if (title.Length > 4)
 					result += $"<color=#grey>\t\t·{title}\t\t\t// {item}</color>\n";
-				else if (title.Length > 10)
+				else if (title.Length > 8)
 					result += $"<color=#grey>\t\t·{title}\t\t// {item}</color>\n";
-				else if (title.Length > 14)
+				else if (title.Length > 12)
 					result += $"<color=#grey>\t\t·{title}\t// {item}</color>\n";
-				else if (title.Length > 18)
+				else if (title.Length > 16)
 					result += $"<color=#grey>\t\t·{title}// {item}</color>\n";
 				else
 					result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";
@@ -1166,7 +1166,10 @@ namespace EffectInfo
 		{
 			return ToInfo(title, $"×{value}%", infoLevel);
 		}
-
+		unsafe static string ToInfoPercent(string title, double value, int infoLevel)
+		{
+			return ToInfo(title, $"×{value.ToString("f2")}%", infoLevel);
+		}
 
 	}
 }

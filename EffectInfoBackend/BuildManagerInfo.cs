@@ -91,9 +91,10 @@ namespace EffectInfo
                         {
 
                             GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
+                            var name = (CharacterDomain.GetRealName(manageChar)).surname;
                             var value = __instance.BaseWorkContribution + manageChar.GetLifeSkillAttainment(lifeSkillType);
                             total_attainment += value;
-                            tmp += ToInfoAdd($"{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
+                            tmp += ToInfoAdd($"{name}:{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
                         }
                         else if(charId >= 0)
                             tmp += ToInfo("本月无法工作", "-", -2);
@@ -137,12 +138,93 @@ namespace EffectInfo
                     System.Threading.Tasks.Task.Delay(500);
                 }
         }
+        public unsafe static string GetCultureOrSafteyInfo(out int total,Config.BuildingBlockItem config)
+        {
+            var tmp = "";
+            total = 100;
+            if (config.RequireSafety != 0 || config.RequireCulture != 0)
+            {
+                tmp += ToInfoAdd("基础", 100,-3);
+                List<SettlementDisplayData> settlements = DomainManager.Taiwu.GetAllVisitedSettlements();
+                int require = 0;
+                bool need_above_require = false;
+                string require_name = "";
+                if (config.RequireSafety != 0)
+                {
+                    //取最大安定的十个
+                    if (settlements.Count > 10)
+                        settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
+                    require = Math.Abs(config.RequireSafety);
+                    need_above_require = config.RequireSafety > 0;//注意此处不能是>=,否则无法复现游戏自带bug
+                    require_name = "安定";
+                }
+                else
+                {
+                    //仍然取安定，因为有bug
+                    if (settlements.Count > 10)
+                        settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
+                    require = Math.Abs(config.RequireSafety);
+                    need_above_require = config.RequireSafety > 0;//注意此处不能是>=,否则无法复现游戏自带bug
+                    require_name = "文化";
+                }
+                for (int i = 0; i < Math.Min(10, settlements.Count); i++)
+                    if (settlements[i].SettlementId >= 0)
+                    {
+                        Settlement settlement = DomainManager.Organization.GetSettlement((short)settlements[i].SettlementId);
+                        var settlement_name = "";
+                        {
+                            var location = settlement.GetLocation();
+                            if (location.AreaId > 0)
+                            {
+                                //Config.MapState.Instance[s_id].Name 省份
+                                //areaData.GetConfig().Name 地区
+                                //因为太长就不显示省份了
+                                var areaData = DomainManager.Map.GetElement_Areas(location.AreaId);
+                                //var s_id = areaData.GetConfig().StateID;
+                                //settlement_name = $"{Config.MapState.Instance[s_id].Name}-{areaData.GetConfig().Name}";
+                                settlement_name = $"{areaData.GetConfig().Name}";
+                            }
+                            var org_id = settlement.GetOrgTemplateId();
+                            if (org_id > 0)//市镇
+                                settlement_name += $"-{Config.Organization.Instance[org_id].Name}";
+                            if (settlement_name == "")
+                                settlement_name = "未知";
+                        }
+
+                        var settlement_property = 0;
+                        if (config.RequireSafety != 0)//Safety判断在前
+                            settlement_property = settlement.GetSafety();
+                        else
+                            settlement_property = settlement.GetCulture();
+                        var value = Math.Abs(settlement_property - require) / 5 + 5;
+                        if (need_above_require && settlement_property > require)
+                        {
+                            total += value;
+                            tmp += ToInfoAdd($"{settlement_name}({settlement_property}-{require})/5+5", value, -3);
+                        }
+                        else if (need_above_require == false && settlement_property < require)
+                        {
+                            total += value;
+                            tmp += ToInfoAdd($"{settlement_name}({require}-{settlement_property})/5+5", value, -3);
+                        }
+                        else //无效
+                            tmp += ToInfoAdd($"{settlement_name}{settlement_property}(不计)", 0, -3);
+                    }
+                var sign_str = need_above_require ? ">" : "<";
+                if (config.RequireSafety != 0)
+                    tmp = ToInfoPercent($"安定前10城镇的{require_name}({sign_str}{require})", total, -2) + tmp;
+                else
+                    tmp = ToInfoPercent($"安定前10城镇的{require_name}({sign_str}{require})(bug)", total, -2) + tmp;
+            }
+            return tmp;
+        }
+
         //经营产出,实际是个整数，达到上限时产出一个物品
-        //GetBuildingAttainment
         public unsafe static void GetBuildingShopOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
         {
             var result = "";
             int check_value = 0;
+            //注意区分GetBuildingAttainment\GetAttainmentOfBuilding\GetShopBuildingAttainment\GetShopBuildingMaxAttainment
             
             int shop_period =0;
             BuildingBlockData blockData;
@@ -319,7 +401,7 @@ namespace EffectInfo
                                     int attainment_total = __instance.GetBuildingAttainment(blockData, blockKey, false);
                                     int success_rate = 0;
                                     {//成功率
-                                            tmp = "";
+                                        tmp = "";
                                         CharacterList managerList;
                                         DomainManager.Building.TryGetElement_ShopManagerDict(blockKey, out managerList);
                                         tmp = ToInfoAdd($"总造诣/{managerList.GetCount()}", attainment_avg, -2) + tmp;
@@ -330,47 +412,70 @@ namespace EffectInfo
                                     result += "\n";
                                     //产出
                                     {
-                                        result += ToInfo("收入", "无法计算", -1);
-                                        result += ToInfoMulti("建筑等级", blockData.Level, -2);
-                                        result += ToInfoMulti("总合造诣/2+100", attainment_total / 2 + 100, -2);
-                                        result += ToInfo("随机", "×80%~150%", -2);
-                                        List<SettlementDisplayData> settlements = DomainManager.Taiwu.GetAllVisitedSettlements();
-                                        if (config.RequireSafety != 0)
-                                        {
-                                            int additon = 0;
-                                            if (settlements.Count > 10)
-                                                settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
-                                            for (int i = 0; i < Math.Min(10, settlements.Count); i++)
-                                                if (settlements[i].SettlementId >= 0)
-                                                {
-                                                    Settlement settlement2 = DomainManager.Organization.GetSettlement((short)settlements[i].SettlementId);
-                                                    additon = ((config.RequireSafety <= 0) ? (additon + ((settlement2.GetSafety() < -config.RequireSafety) ? ((-config.RequireSafety - settlement2.GetSafety()) / 5 + 5) : 0)) : (additon + ((settlement2.GetSafety() > config.RequireSafety) ? ((settlement2.GetSafety() - config.RequireSafety) / 5 + 5) : 0)));
-                                                }
-                                            result += ToInfoPercent("访客加成-安定(浮动)",additon+100, -2);
-                                        }
-                                        else if(config.RequireCulture != 0)
-                                        {
-                                            int additon2 = 0;
-                                            if (settlements.Count > 10)
-                                            {
-                                                settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
-                                            }
-                                            for (int j = 0; j < Math.Min(10, settlements.Count); j++)
-                                            {
-                                                if (settlements[j].SettlementId >= 0)
-                                                {
-                                                    Settlement settlement = DomainManager.Organization.GetSettlement((short)settlements[j].SettlementId);
-                                                    additon2 = ((config.RequireSafety <= 0) ? (additon2 + ((settlement.GetCulture() < -config.RequireSafety) ? ((-config.RequireSafety - settlement.GetCulture()) / 5 + 5) : 0)) : (additon2 + ((settlement.GetCulture() > config.RequireSafety) ? ((settlement.GetCulture() - config.RequireSafety) / 5 + 5) : 0)));
-                                                }
-                                            }
-                                            result += ToInfoPercent("访客加成-文化(浮动)", additon2 + 100, -2);
-                                        }
+                                        var base_value = 1;
+                                        tmp = "";
+                                        base_value *= blockData.Level;
+                                        tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
+                                        base_value *= attainment_total / 2 + 100;
+                                        tmp += ToInfoMulti("总合造诣/2+100", attainment_total / 2 + 100, -2);
+                                        //已访问城镇的安定/文化加成
+                                        int settlement_total = 0;
+                                        tmp+= GetCultureOrSafteyInfo(out settlement_total, config);
+                                        base_value *= settlement_total/100;
                                         if (shopEventConfig.ResourceGoods == 7)//威望
-                                            result += ToInfoDivision("倍率(威望)(未实装)", 10, -2);
-                                        result += ToInfoMulti("如果成功", 1, -2);
-                                        result += ToInfoMulti("如果失败", 0, -2);
+                                        {
+                                            //base_value /=10;
+                                            tmp += ToInfoDivision("倍率(威望)(未实装)", 10, -2);
+                                        }
+                                        tmp += ToInfo("随机", "×80%~150%", -2);
+                                        tmp += ToInfoMulti("如果成功", 1, -2);
+                                        tmp += ToInfoMulti("如果失败", 0, -2);
+                                        result += ToInfo("收入", $"0/{base_value*80/100}~{base_value*150/100}", -1)+tmp;
+
+                                        result += "\n";
+                                        var expect = base_value * (150 + 80) / 2 / 100 * success_rate / 100;
+                                        result += ToInfoAdd("每月收入期望", expect, -1);
                                     }
                                 }
+                            }
+                            else if(shopEventConfig.ItemList.Count > 0&& shopEventConfig.ItemGradeProbList.Count <= 0)//ItemList:宝井等资源建筑，ItemGradeProbList:不知道是什么
+                            {
+                                tmp = "";
+                                double fail_chance=100.0;
+                                int resourceAttainment;
+                                if (config.IsCollectResourceBuilding)
+                                    resourceAttainment = __instance.GetAttainmentOfBuilding(blockKey, true);//坑爹
+                                else
+                                    resourceAttainment = __instance.GetShopBuildingAttainment(blockData, blockKey, true);
+                                int from = 0;
+                                int end = shopEventConfig.ItemList.Count;
+                                if (shopEventConfig.ResourceList.Count > 1)
+                                {
+                                    sbyte resourceType = __instance.GetCollectBuildingResourceType(blockKey);
+                                    if (resourceType == shopEventConfig.ResourceList[0])
+                                        end = shopEventConfig.ItemList.Count / 2 - 1;
+                                    else
+                                        from = shopEventConfig.ItemList.Count / 2;
+                                }
+                                var base_chance = (int)(blockData.Level * 2) + resourceAttainment / (int)__instance.AttainmentToProb;
+                                tmp += ToInfo("基础概率",$"{base_chance}%",-2);
+                                tmp += ToInfoAdd("造诣总合/3", resourceAttainment, -3);
+                                tmp += ToInfoDivision("倍率", __instance.AttainmentToProb, -3);
+                                tmp += ToInfoAdd("建筑等级*2", blockData.Level * 2, -3);
+
+                                for (int i = from; i < end; i++)
+                                {
+                                    int prob = shopEventConfig.ItemList[i].Amount + base_chance;
+                                    prob=Math.Clamp(prob, 0, 100);
+                                    short template_id = shopEventConfig.ItemList[i].TemplateId;
+                                    sbyte type = shopEventConfig.ItemList[0].Type;//游戏代码type就是取的Item0，不知道是不是bug
+                                    var item_name=ItemTemplateHelper.GetName(type, template_id);
+                                    var item_grade=ItemTemplateHelper.GetGrade(type, template_id);
+                                    var sign_str= shopEventConfig.ItemList[i].Amount>=0?"+":"";
+                                    tmp +=ToInfoPercent($"{item_name}({9-item_grade}品)({sign_str}{shopEventConfig.ItemList[i].Amount}%)",prob,-2);
+                                    fail_chance *= 1-(double)prob / 100.0;
+                                }
+                                result += ToInfoPercent("成功率", 100.0-fail_chance, -1)+"\n"+ToInfo("物品相对概率","",-1)+tmp;
                             }
                         }
                 }
