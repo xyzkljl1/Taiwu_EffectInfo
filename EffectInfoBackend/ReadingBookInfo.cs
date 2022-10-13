@@ -436,12 +436,12 @@ namespace EffectInfo
                     if (bonusRefBookIds != null && bonusRefBookIds.Contains(refBookKey.TemplateId))
                     {
                         refBonusSpeed += (refBookGrade + 1) * 20;
-                        result += ToInfoAdd("奖励类型:(品级+1)*20", (refBookGrade + 1) * 20, -3);
+                        result += ToInfoAdd("奖励技艺:(品级+1)*20", (refBookGrade + 1) * 20, -3);
                     }
                     if (refBook.GetItemSubType() == book.GetItemSubType() && refBookSkillType == bookSkillType)
                     {
                         refBonusSpeed += (refBookGrade + 1) * 40;
-                        result += ToInfoAdd("同类型:(品级+1)*40", (refBookGrade + 1) * 40, -3);
+                        result += ToInfoAdd("同技艺:(品级+1)*40", (refBookGrade + 1) * 40, -3);
                     }
                 }
             }

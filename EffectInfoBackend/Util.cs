@@ -1121,6 +1121,20 @@ namespace EffectInfo
 				result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";
 			return result;
         }
+		unsafe static string ToInfoNote(string title, int infoLevel)
+		{
+			var levelabs = Math.Abs(infoLevel);
+			if (levelabs > EffectInfoBackend.InfoLevel)
+				return "";
+			var result = "";
+			if (levelabs == 1)
+				result += $"<color=#grey>(注:{title})</color>\n";
+			if (levelabs == 2)
+				result += $"<color=#grey>\t(注:{title})</color>\n";
+			if (levelabs == 3)
+				result += $"<color=#grey>\t\t(注:{title})</color>\n";
+			return result;
+		}
 		unsafe static string ToInfoMin(string title, int value, int infoLevel)
 		{
 			return ToInfo(title, $">={value}", infoLevel);

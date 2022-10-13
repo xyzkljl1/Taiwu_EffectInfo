@@ -285,7 +285,8 @@ namespace EffectInfo
                 if(check_value>0)
                 {
                     shop_period = (config.MaxProduceValue+check_value-1) / check_value;//向上取整
-                    result += ToInfo("等效效率(溢出进度不保留)", $"{((double)100/shop_period).ToString("f2")}%", -1);
+                    result += ToInfo("等效效率", $"{((double)100/shop_period).ToString("f2")}%", -1)
+                            + ToInfoNote("因为溢出进度不保留",-1);
                 }
                 result += "\n";
                 //成功率和基础产出
@@ -441,23 +442,86 @@ namespace EffectInfo
                                 }
                                 var base_chance = (int)(blockData.Level * 2) + resourceAttainment / (int)__instance.AttainmentToProb;
                                 tmp += ToInfo("基础概率",$"{base_chance}%",-2);
+                                tmp += ToInfoNote("每个物品的相对概率=基础概率+物品概率加成", -2);
                                 tmp += ToInfoAdd("造诣总合/3", resourceAttainment, -3);
                                 tmp += ToInfoDivision("倍率", __instance.AttainmentToProb, -3);
                                 tmp += ToInfoAdd("建筑等级*2", blockData.Level * 2, -3);
 
+                                //药房的物品很多而且几率相同,为防止超出窗口合并
+                                var itemLists = new Dictionary<int, string>();//Amount到物品名的映射
                                 for (int i = from; i < end; i++)
                                 {
-                                    int prob = shopEventConfig.ItemList[i].Amount + base_chance;
-                                    prob=Math.Clamp(prob, 0, 100);
+                                    int item_chance = shopEventConfig.ItemList[i].Amount;
+                                    int prob = Math.Clamp(item_chance + base_chance, 0, 100);
+
                                     short template_id = shopEventConfig.ItemList[i].TemplateId;
                                     sbyte type = shopEventConfig.ItemList[0].Type;//游戏代码type就是取的Item0，不知道是不是bug
-                                    var item_name=ItemTemplateHelper.GetName(type, template_id);
-                                    var item_grade=ItemTemplateHelper.GetGrade(type, template_id);
-                                    var sign_str= shopEventConfig.ItemList[i].Amount>=0?"+":"";
-                                    tmp +=ToInfoPercent($"{item_name}({9-item_grade}品)({sign_str}{shopEventConfig.ItemList[i].Amount}%)",prob,-2);
-                                    fail_chance *= 1-(double)prob / 100.0;
+                                    var item_name = ItemTemplateHelper.GetName(type, template_id);
+                                    var item_grade = ItemTemplateHelper.GetGrade(type, template_id);
+                                    var sign_str = shopEventConfig.ItemList[i].Amount >= 0 ? "+" : "";
+                                    if(!itemLists.ContainsKey(item_chance))
+                                        itemLists.Add(item_chance, $"{9 - item_grade}品-");
+                                    itemLists[item_chance] +=$"{item_name}|";
+                                    fail_chance *= 1 - (double)prob / 100.0;
                                 }
-                                result += ToInfoPercent("成功率", 100.0-fail_chance, -1)+"\n"+ToInfo("物品相对概率","",-1)+tmp;
+                                foreach (var item_chance in itemLists.Keys)//去掉末尾的|
+                                    itemLists[item_chance] = itemLists[item_chance].Substring(0, itemLists[item_chance].Length - 1);
+                                if(itemLists.Count==end-from&&itemLists.Count<=6)//如果每种概率的物品只有一个且数量少，就计算绝对概率
+                                {
+                                    //想不通概率怎么算，只能枚举了
+                                    int bits = itemLists.Count;
+                                    int max_bit_flag = 1 << bits;
+                                    var item_add_chances = itemLists.Keys.ToList<int>();//物品的amount,按itemLists.Keys顺序
+                                    var item_abs_chances = new List<double>();//物品的绝对概率，同上顺序
+                                    for (int i = 0; i < bits; i++)
+                                        item_abs_chances.Add(0);
+                                    for (int bit_flags=0;bit_flags<max_bit_flag;++bit_flags)
+                                    {
+                                        double situation_chance = 1.0;//该种情况的概率
+                                        int ct = 0;
+                                        for(int i=0;i<bits;++i)
+                                        {
+                                            var relative_chance= Math.Clamp(item_add_chances[i] + base_chance, 0, 100);
+                                            situation_chance *= ((bit_flags >> i) & 1)==1 ? relative_chance : (100 - relative_chance);
+                                            situation_chance /= (double)100;
+                                            ct += (bit_flags >> i) & 1;
+                                        }
+                                        situation_chance /= ct;
+                                        for (int i = 0; i < bits; ++i)//均分到每个物品的上
+                                            if(((bit_flags >> i) & 1) == 1)
+                                                item_abs_chances[i] += situation_chance;
+                                    }
+                                    for (int i = 0; i < bits; i++)
+                                    {
+                                        var amount=item_add_chances[i];
+                                        var name = itemLists[amount];
+                                        var relative_chance= Math.Clamp(amount + base_chance, 0, 100);
+                                        double abs_chance =item_abs_chances[i]*100;
+                                        var sign_str = relative_chance >= 0 ? "+" : "";
+                                        if(relative_chance==0)
+                                            tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×0(0)%)", -2);
+                                        else
+                                            tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×{relative_chance}({abs_chance.ToString("f2")}%)", -2);
+                                    }
+                                    result += ToInfoPercent("成功率", 100.0 - fail_chance, -1) + "\n"
+                                        + ToInfo("物品相对概率(绝对概率)", "", -1)
+                                        + ToInfoNote("绝对概率之和等于成功率",-1)
+                                        + tmp;
+                                }
+                                else
+                                {
+                                    foreach (var itemPair in itemLists)
+                                    {
+                                        int item_chance = itemPair.Key;
+                                        int prob = Math.Clamp(item_chance + base_chance, 0, 100);
+                                        var sign_str = prob >= 0 ? "+" : "";
+                                        tmp += ToInfoPercent($"{itemPair.Value}({sign_str}{item_chance}%)", prob, -2);
+                                    }
+                                    result += ToInfoPercent("成功率", 100.0 - fail_chance, -1) + "\n" 
+                                        + ToInfo("物品相对概率", "", -1)
+                                        + ToInfoNote("每个物品分别以相对概率决定是否入围，再在所有入围物品中以均等概率选一个作为最终产物，当且仅当入围物品为0时失败", -1)
+                                        + tmp;
+                                }
                             }
                         }
                 }

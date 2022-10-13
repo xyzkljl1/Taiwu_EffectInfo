@@ -1643,22 +1643,22 @@ namespace EffectInfo
             result += ToInfo($"总合校验值{check_value}/{check_value2}", check_value== check_value2 ? "":"不一致!",1);            
             result += "\n\n";
             //Character.OfflineExecuteFixedAction_MakeLove_Mutual
-            result += ToInfo("夫妻春宵概率", "×??", 1);
+            var behavior = Config.BehaviorType.Instance[character.GetBehaviorType()].Name;
+            result += ToInfo("(有需求时)春宵概率", "×??", 1);
             result += ToInfoAdd("我方基础生育率", check_value, 2);
-            result += ToInfo("对方基础生育率", "??", 2);
 
-            result += ToInfo("爱慕春宵概率", "×??", 1);
-            result += ToInfoAdd("我方基础生育率", check_value, 2);
-            var behavior=Config.BehaviorType.Instance[character.GetBehaviorType()].Name;
-            result += ToInfoPercent($"爱慕倍率({behavior})", AiHelper.FixedActionConstants.BoyAndGirlFriendMakeLoveBaseChance[character.GetBehaviorType()], 2);
-            result += ToInfo("对方基础生育率", "×??", 2);
+            result += ToInfoPercent("如果是强奸", AiHelper.FixedActionConstants.RapeBaseChance[character.GetBehaviorType()], 2);
+            result += ToInfoPercent($"强奸倍率({behavior})", AiHelper.FixedActionConstants.RapeBaseChance[character.GetBehaviorType()], 3);
 
-            result += ToInfoPercent("强奸春宵概率", (check_value* AiHelper.FixedActionConstants.RapeBaseChance[character.GetBehaviorType()])/100, 1);
-            result += ToInfoAdd("我方基础生育率", check_value, 2);
-            result += ToInfoPercent($"强奸倍率({behavior})", AiHelper.FixedActionConstants.RapeBaseChance[character.GetBehaviorType()], 2);
+            result += ToInfo("如果是夫妻", "??", 2);
+            result += ToInfo("对方基础生育率", "??", 3);
+
+            result += ToInfo("如果是爱慕", "??", 2);
+            result += ToInfoPercent($"爱慕倍率({behavior})", AiHelper.FixedActionConstants.BoyAndGirlFriendMakeLoveBaseChance[character.GetBehaviorType()], 3);
+            result += ToInfo("对方基础生育率", "×??", 3);
 
             //Character.OfflineMakeLove
-            result += ToInfo("怀孕概率", "×??", 1);
+            result += ToInfo("(春宵时)怀孕概率", "×??", 1);
             result += ToInfoAdd("基础", 60, 2);
             result += ToInfoDivision("如果是强奸", 3, 2);
             result += ToInfoPercent("我方基础生育率", check_value, 2);

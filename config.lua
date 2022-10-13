@@ -5,7 +5,7 @@ return {
 	{
 		[1] = "EffectInfoFrontend.dll"
 	},
-	Description = [[1.992,对应游戏v0.0.31.1
+	Description = [[1.993,对应游戏v0.0.31.1
 源代码：https://github.com/xyzkljl1/Taiwu_EffectInfo
 用于在人物/建筑/读书菜单部分数字的悬浮tips上显示数值详细信息，目前支持的：
 1.人物界面：右侧的全部属性、魅力(属性左侧魅力图标)、生育力(魅力上方年龄图标)
@@ -105,6 +105,6 @@ C X10.0
 			Key = "ShowUseless"
 		}
 	},
-	Version = "1.992",
+	Version = "1.993",
 	Author = "xyzkljl1"
 }
