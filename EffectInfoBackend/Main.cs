@@ -869,8 +869,7 @@ namespace EffectInfo
                 else
                 {
                     short clothingDisplayId = character.GetClothingDisplayId();
-                    //正式版这里clothingDisplayId转成byte明显是bug，而测试版修复了
-                    check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, (byte)clothingDisplayId);
+                    check_value = (int)character.GetAvatar().GetCharm(physiologicalAge, clothingDisplayId);
                     if (check_value != 0 || ShowUseless)
                     {
                         result += ToInfoAdd("外观", check_value, 1);

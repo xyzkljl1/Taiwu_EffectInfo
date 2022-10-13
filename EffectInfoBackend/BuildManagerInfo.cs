@@ -297,10 +297,9 @@ namespace EffectInfo
                         {
                             if (shopEventConfig.ResourceGoods != -1)//直接收入资源类型的建筑.ResourceGoods=6为金钱，=7为威望
                             {
+                                int success_rate = 0;
                                 if (blockData.TemplateId == MyBuildingBlockDefKey.GamblingHouse)
                                 {
-                                    double expect_resource = 0;
-                                    int success_rate = 0;
                                     {//成功率
                                         tmp = "";
                                         int maxPersonalities = 0;
@@ -329,28 +328,9 @@ namespace EffectInfo
                                         result += ToInfoPercent("成功率",maxPersonalities/5,-1)+tmp;
                                     }
                                     result += "\n";
-                                    //产出
-                                    {
-                                        tmp = "";
-                                        int attainment=__instance.GetBuildingAttainment(blockData,blockKey);
-                                        tmp += ToInfoAdd("造诣", attainment,-2);
-                                        tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
-                                        tmp += ToInfoMulti("如果成功", (double)3,-2);
-                                        tmp += ToInfoMulti("如果失败", (double)0.33,-2);
-                                        short value_a = (short)((double)(attainment * blockData.Level) * 3);
-                                        short value_b = (short)((double)(attainment * blockData.Level) * 0.33);
-                                        result += ToInfo("收入",$"{value_a}/{value_b}",-1) + tmp;
-                                        expect_resource = (success_rate * value_a + (100 - success_rate) * value_b) / (double)100;
-                                    }
-
-                                    expect_resource /= shop_period;
-                                    result+="\n";
-                                    result += ToInfo("每月收入期望", expect_resource.ToString("f2"),-1);
                                 }
                                 else if (blockData.TemplateId == MyBuildingBlockDefKey.Brothel)//青楼
                                 {
-                                    double expect_resource = 0;
-                                    int success_rate = 0;
                                     {//成功率
                                         tmp = "";
                                         int maxAttraction = 0;
@@ -376,30 +356,12 @@ namespace EffectInfo
                                         success_rate=Math.Clamp(maxAttraction/20,0,100);
                                         result += ToInfoPercent("成功率", success_rate, -1) + tmp;
                                     }
-                                    result += "\n";
-                                    //产出
-                                    {
-                                        tmp = "";
-                                        int attainment = __instance.GetBuildingAttainment(blockData, blockKey);
-                                        tmp += ToInfoAdd("造诣", attainment, -2);
-                                        tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
-                                        tmp += ToInfoMulti("如果成功", (double)2, -2);
-                                        tmp += ToInfoMulti("如果失败", (double)0.5, -2);
-                                        short value_a = (short)((double)(attainment * blockData.Level) * 2);
-                                        short value_b = (short)((double)(attainment * blockData.Level) * 0.5);
-                                        result += ToInfo("基础收入", $"{value_a}/{value_b}", -1)+tmp;
-                                        expect_resource = (success_rate * value_a + (100 - success_rate) * value_b) / (double)100;
-                                    }
-                                    expect_resource /= shop_period;
-                                    result += "\n";
-                                    result += ToInfo("每月收入期望", expect_resource.ToString("f2"), -1);
+                                    result += "\n";                                  
                                 }
                                 else
                                 {
                                     //注意此处的平均是除mangerList.GetCount,即可能的managers数量，而非已有的manager数量，即总是除3
                                     int attainment_avg = __instance.GetBuildingAttainment(blockData, blockKey, true);
-                                    int attainment_total = __instance.GetBuildingAttainment(blockData, blockKey, false);
-                                    int success_rate = 0;
                                     {//成功率
                                         tmp = "";
                                         CharacterList managerList;
@@ -410,32 +372,51 @@ namespace EffectInfo
                                         result += ToInfoPercent("成功率", success_rate, -1) + tmp;
                                     }
                                     result += "\n";
-                                    //产出
+                                }
+                                //产出
+                                {
+                                    int attainment_total = __instance.GetBuildingAttainment(blockData, blockKey, false);
+                                    var base_value = 1;
+                                    tmp = "";
+                                    base_value *= blockData.Level;
+                                    tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
+                                    base_value *= attainment_total / 2 + 100;
+                                    tmp += ToInfoMulti("总合造诣/2+100", attainment_total / 2 + 100, -2);
+                                    //已访问城镇的安定/文化加成
+                                    int settlement_total = 0;
+                                    tmp += GetCultureOrSafteyInfo(out settlement_total, config);
+                                    base_value *= settlement_total / 100;
+                                    if (shopEventConfig.ResourceGoods == 7)//威望
                                     {
-                                        var base_value = 1;
-                                        tmp = "";
-                                        base_value *= blockData.Level;
-                                        tmp += ToInfoMulti("建筑等级", blockData.Level, -2);
-                                        base_value *= attainment_total / 2 + 100;
-                                        tmp += ToInfoMulti("总合造诣/2+100", attainment_total / 2 + 100, -2);
-                                        //已访问城镇的安定/文化加成
-                                        int settlement_total = 0;
-                                        tmp+= GetCultureOrSafteyInfo(out settlement_total, config);
-                                        base_value *= settlement_total/100;
-                                        if (shopEventConfig.ResourceGoods == 7)//威望
-                                        {
-                                            //base_value /=10;
-                                            tmp += ToInfoDivision("倍率(威望)(未实装)", 10, -2);
-                                        }
-                                        tmp += ToInfo("随机", "×80%~150%", -2);
+                                        //base_value /=10;
+                                        tmp += ToInfoDivision("倍率(威望)(未实装)", 10, -2);
+                                    }
+                                    tmp += ToInfo("随机", "×80%~150%", -2);
+                                    double expect = 0;
+                                    if (blockData.TemplateId == MyBuildingBlockDefKey.GamblingHouse)
+                                    {
+                                        tmp += ToInfoMulti("如果成功", 3, -2);
+                                        tmp += ToInfoDivision("如果失败", 3, -2);
+                                        result += ToInfo("收入", $"{base_value * 80/3 / 100}~{base_value * 150 /3/ 100}/{base_value * 80*3 / 100}~{base_value * 150*3 / 100}", -1) + tmp;
+                                        expect = base_value * (150 + 80) / 2 / 100 * ((double)success_rate*3+(100-success_rate)/3) / 100 / shop_period;
+                                    }
+                                    else if(blockData.TemplateId == MyBuildingBlockDefKey.Brothel)
+                                    {
+                                        tmp += ToInfoMulti("如果成功", 2, -2);
+                                        tmp += ToInfoDivision("如果失败", 2, -2);
+                                        result += ToInfo("收入", $"{base_value * 80 / 2/ 100}~{base_value * 150 / 2 / 100}/{base_value * 80*2 / 100}~{base_value * 150*2 / 100}", -1) + tmp;
+                                        expect = base_value * (150 + 80) / 2 / 100 * ((double)success_rate * 2 + (100 - success_rate) / 2) / 100 / shop_period;
+                                    }
+                                    else
+                                    {
                                         tmp += ToInfoMulti("如果成功", 1, -2);
                                         tmp += ToInfoMulti("如果失败", 0, -2);
-                                        result += ToInfo("收入", $"0/{base_value*80/100}~{base_value*150/100}", -1)+tmp;
-
-                                        result += "\n";
-                                        var expect = base_value * (150 + 80) / 2 / 100 * success_rate / 100;
-                                        result += ToInfoAdd("每月收入期望", expect, -1);
+                                        result += ToInfo("收入", $"0/{base_value * 80 / 100}~{base_value * 150 / 100}", -1) + tmp;
+                                        expect = base_value * (150 + 80) / 2 / 100 * success_rate / 100 / shop_period;
                                     }
+
+                                    result += "\n";
+                                    result += ToInfoAdd("每月收入期望", expect, -1);
                                 }
                             }
                             else if(shopEventConfig.ItemList.Count > 0&& shopEventConfig.ItemGradeProbList.Count <= 0)//ItemList:宝井等资源建筑，ItemGradeProbList:不知道是什么
