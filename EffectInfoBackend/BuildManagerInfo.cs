@@ -97,7 +97,7 @@ namespace EffectInfo
                             tmp += ToInfoAdd($"{name}:{lifeSkillName}+{__instance.BaseWorkContribution}", value, -3);
                         }
                         else if(charId >= 0)
-                            tmp += ToInfo("本月无法工作", "-", -2);
+                            tmp += ToInfo("本月无法工作", "-", -3);
                     }
                     tmp += ToInfoMulti("倍率", 0.01, -3);
                     //此处CalcResourceChangeFunc的isAverage参数恒为false
@@ -247,7 +247,8 @@ namespace EffectInfo
                         if (charId >= 0 && DomainManager.Taiwu.CanWork(charId))
                         {
                             GameData.Domains.Character.Character manageChar = DomainManager.Character.GetElement_Objects(charId);
-                            if(use_max_combat_attainment)
+                            var name = (CharacterDomain.GetRealName(manageChar)).surname;
+                            if (use_max_combat_attainment)
                             {
                                 var _skillname = "";
                                 var max_attainment = 0;
@@ -262,17 +263,17 @@ namespace EffectInfo
                                 }
                                 max_attainment += __instance.BaseWorkContribution;
                                 check_value += max_attainment;
-                                tmp += ToInfoAdd($"{_skillname}+{__instance.BaseWorkContribution}", max_attainment, -2);
+                                tmp += ToInfoAdd($"{name}:{_skillname}+{__instance.BaseWorkContribution}", max_attainment, -2);
                             }
                             else
                             {
                                 var value = __instance.BaseWorkContribution + manageChar.GetLifeSkillAttainment(lifeSkillType);
                                 check_value += value;
-                                tmp += ToInfoAdd($"{lifeSkillName}+{__instance.BaseWorkContribution}", value, -2);
+                                tmp += ToInfoAdd($"{name}:{lifeSkillName}+{__instance.BaseWorkContribution}", value, -2);
                             }
                         }
                         else if(charId >= 0)
-                            tmp += ToInfo("本月无法工作", "-", -2);
+                            tmp += ToInfo("本月无法工作", "-", -3);
                     }
                     //此处isAverage恒为false
                 }
@@ -320,7 +321,7 @@ namespace EffectInfo
                                                 tmp += ToInfoAdd($"七元加和",sum,-3);
                                             }
                                             else if(charId >= 0)
-                                                tmp += ToInfo("本月无法工作", "-", -2);
+                                                tmp += ToInfo("本月无法工作", "-", -3);
                                         }
                                         tmp = ToInfoAdd("最大七元",maxPersonalities,-2)+tmp;
                                         tmp += ToInfoDivision("倍率", 5,-2);
@@ -349,7 +350,7 @@ namespace EffectInfo
                                                 tmp += ToInfoAdd($"魅力", attraction, -3);
                                             }
                                             else if(charId >= 0)
-                                                tmp += ToInfo("本月无法工作", "-", -2);
+                                                tmp += ToInfo("本月无法工作", "-", -3);
                                         }
                                         tmp = ToInfoAdd("最大魅力", maxAttraction, -2) + tmp;
                                         tmp += ToInfoDivision("倍率", 20, -2);
@@ -388,8 +389,8 @@ namespace EffectInfo
                                     base_value *= settlement_total / 100;
                                     if (shopEventConfig.ResourceGoods == 7)//威望
                                     {
-                                        //base_value /=10;
-                                        tmp += ToInfoDivision("倍率(威望)(未实装)", 10, -2);
+                                        base_value /=10;
+                                        tmp += ToInfoDivision("倍率(威望)", 10, -2);
                                     }
                                     tmp += ToInfo("随机", "×80%~150%", -2);
                                     double expect = 0;
