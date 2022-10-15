@@ -1125,13 +1125,10 @@ namespace EffectInfo
                     {
                         int preCharId = preexistenceCharIds.CharIds[j];
                         DeadCharacter preChar = DomainManager.Character.GetDeadCharacter(preCharId);
-                        //因为游戏代码有bug，这里就是=，为了跟显示的数值一致所以也用=，实际应该是+=
-                        value = preChar.BaseMainAttributes.Items[i]/10;
+                        //因为游戏代码有bug，这里就是=，为了跟显示的数值一致所以也用=，实际应该是+=//游戏已经修了
+                        value += preChar.BaseMainAttributes.Items[i]/10;
                         var name = preChar.FullName.GetName(preChar.Gender, DomainManager.World.GetCustomTexts());
-                        if (j== preexistenceCharIds.Count-1)
-                            tmp += ToInfoAdd($"{name.Item1}", value,2);
-                        else
-                            tmp += ToInfoAdd($"{name.Item1}(未实装)", value, 2);
+                        tmp += ToInfoAdd($"{name.Item1}", preChar.BaseMainAttributes.Items[i]/10,2);
                         dirty_tag = true;
                     }
                     check_value[i] += value;

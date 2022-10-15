@@ -225,19 +225,29 @@ namespace EffectInfo
             var result = "";
             int check_value = 0;
             //注意区分GetBuildingAttainment\GetAttainmentOfBuilding\GetShopBuildingAttainment\GetShopBuildingMaxAttainment
-            
+            //可以产出多种资源的建筑，产出不同造诣时，使用的资质不同
+            //这些建筑切换产出的资源，也           
             int shop_period = -1;
             BuildingBlockData blockData;
             if (__instance.TryGetElement_BuildingBlocks(blockKey, out blockData))
             {
+                //经营进度 SerialUpdate
                 var tmp = "";
                 Config.BuildingBlockItem config = Config.BuildingBlock.Instance[blockData.TemplateId];
                 bool use_max_combat_attainment = false;
                 if (config.DependBuildings.Count > 0 && config.DependBuildings[0] == MyBuildingBlockDefKey.KungfuPracticeRoom && config.IsShop)//练功房附属建筑使用最大武学造诣
                     use_max_combat_attainment = true;
-                //造诣
+                //造诣 GetAttainmentOfBuilding(资源的记忆)或GetShopBuildingAttainment(建筑的技艺)
                 {
                     sbyte lifeSkillType = Config.BuildingBlock.Instance[blockData.TemplateId].RequireLifeSkillType;
+                    if (config.IsCollectResourceBuilding)
+                    {
+                        //产出资源(resourceType<6即常规六种资源)的经营建筑，使用产出的资源的技艺类型而非建筑的记忆类型(SerialUpdate->UpdateResourceBlock)
+                        //官方前端统统使用的GetBuildingAttainment，即使用建筑的造诣显示，因此官方显示的效率可能不正确
+                        sbyte resourceType = __instance.GetCollectBuildingResourceType(blockKey);
+                        sbyte getResourceType = (sbyte)((resourceType < 6) ? resourceType : 5);
+                        lifeSkillType = (sbyte)((resourceType < 6) ? Config.ResourceType.Instance[resourceType].LifeSkillType : 9);
+                    }
                     var lifeSkillName = Config.LifeSkillType.Instance[lifeSkillType].Name;
                     CharacterList managerList;
                     DomainManager.Building.TryGetElement_ShopManagerDict(blockKey, out managerList);
@@ -278,6 +288,8 @@ namespace EffectInfo
                     //此处isAverage恒为false
                 }
                 tmp = ToInfoAdd("总造诣", check_value, -1)+tmp;
+                if (config.IsCollectResourceBuilding)//哈批游戏代码，对于所有建筑都用的建筑所需造诣显示效率，但实际计算并不是
+                    tmp += ToInfoNote("当前版本官方显示的工作效率可能不正确,请以过月实际增加的进度的为准",-1);
                 tmp += ToInfoDivision("建筑产出需求", config.MaxProduceValue, -1);
                 double double_check_value = (double)100.0 * (double)check_value / config.MaxProduceValue;
                 result = tmp + ToInfo("总合校验值", $"{double_check_value.ToString("f2")}%", -1);
@@ -297,6 +309,7 @@ namespace EffectInfo
                     if (blockData.TemplateId!=MyBuildingBlockDefKey.BookCollectionRoom)
                         if(config.IsShop&&_shopManagerDict.ContainsKey(blockKey))
                         {
+                            //正常情况下下面的所有GetAttainmentOfBuilding/GetShopBuildingAttainment的结果应该跟计算效率时的总造诣一致，只是做了平均，保险起见仍然调用游戏内api获得造诣
                             if (shopEventConfig.ResourceGoods != -1)//直接收入资源类型的建筑.ResourceGoods=6为金钱，=7为威望
                             {
                                 int success_rate = 0;
@@ -429,7 +442,7 @@ namespace EffectInfo
                                 double fail_chance=100.0;
                                 int resourceAttainment;
                                 if (config.IsCollectResourceBuilding)
-                                    resourceAttainment = __instance.GetAttainmentOfBuilding(blockKey, true);//坑爹
+                                    resourceAttainment = __instance.GetAttainmentOfBuilding(blockKey, true);//此处用的是/3的
                                 else
                                     resourceAttainment = __instance.GetShopBuildingAttainment(blockData, blockKey, true);
                                 int from = 0;
@@ -510,7 +523,7 @@ namespace EffectInfo
                                         + ToInfoNote("绝对概率之和等于成功率",-1)
                                         + tmp;
                                 }
-                                else
+                                else//否则弃疗
                                 {
                                     foreach (var itemPair in itemLists)
                                     {

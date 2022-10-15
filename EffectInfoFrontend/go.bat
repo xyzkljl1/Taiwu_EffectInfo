@@ -1,5 +1,5 @@
 //go.bat $(SolutionName) $(TargetPath)
-set TAIWUDIR=G:\\Steam\\steamapps\\workshop\\content\\838350\\2871662978
+set TAIWUDIR=G:\\Steam\\steamapps\\workshop\\content\\838350\\2875465713
 set Project=%1%
 set Plugin=%2%
 ::echo start
