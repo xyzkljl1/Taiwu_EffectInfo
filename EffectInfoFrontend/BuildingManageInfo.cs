@@ -129,5 +129,23 @@ namespace EffectInfo
 
         }
 
+        //由于切换产出资源类型时不会刷新，导致显示的数值可能是错的，帮他刷一下
+        [HarmonyPostfix, HarmonyPatch(typeof(UI_BuildingManage),
+          "InitResourceCollectToggle")]
+        public static void InitResourceCollectTogglePatch(UI_BuildingManage __instance)
+        {
+            if (!On)
+                return;
+            if (!__instance)
+                return;
+            var _shopInfoPage = GetPrivateField<Refers>(__instance, "_shopInfoPage");
+            if (!_shopInfoPage)
+                return;
+            CToggleGroup resourceOutputInfoHolder = _shopInfoPage.CGet<CToggleGroup>("ResourceOutputInfoHolder");
+            resourceOutputInfoHolder.OnActiveToggleChange += delegate (CToggle togNew, CToggle togOld)
+             {
+                 CallPrivateMethod(__instance, "UpdateShopManagersNew", new object[] { });
+             };
+        }
     }
 }

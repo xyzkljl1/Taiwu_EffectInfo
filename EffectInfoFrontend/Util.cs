@@ -82,6 +82,23 @@ namespace EffectInfo
 	}
 
 	public partial class EffectInfoFrontend {
-
-    }
+		public static void CallPrivateMethod(object instance, string method_name, object[] paras)
+		{
+			Type type = instance.GetType();
+			MethodInfo method_info = type.GetMethod(method_name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+			var para_infos = method_info.GetParameters();
+			if (paras.Length != paras.Length)
+			{
+				UnityEngine.Debug.Log($"EffectInfo失效:{method_name}");
+				return;
+			}
+			for (int i = 0; i < para_infos.Length; i++)
+				if (para_infos[i].ParameterType != paras[i].GetType())
+				{
+					UnityEngine.Debug.Log($"EffectInfo失效:{method_name}");
+					return ;
+				}
+			method_info.Invoke(instance, paras);
+		}
+	}
 }
