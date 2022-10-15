@@ -226,7 +226,7 @@ namespace EffectInfo
             int check_value = 0;
             //注意区分GetBuildingAttainment\GetAttainmentOfBuilding\GetShopBuildingAttainment\GetShopBuildingMaxAttainment
             
-            int shop_period =0;
+            int shop_period = -1;
             BuildingBlockData blockData;
             if (__instance.TryGetElement_BuildingBlocks(blockKey, out blockData))
             {
@@ -282,7 +282,7 @@ namespace EffectInfo
                 double double_check_value = (double)100.0 * (double)check_value / config.MaxProduceValue;
                 result = tmp + ToInfo("总合校验值", $"{double_check_value.ToString("f2")}%", -1);
                 //每回合最多收获一次且溢出轻灵，
-                if(check_value>0)
+                if (check_value>0)
                 {
                     shop_period = (config.MaxProduceValue+check_value-1) / check_value;//向上取整
                     result += ToInfo("等效效率", $"{((double)100/shop_period).ToString("f2")}%", -1)
@@ -416,9 +416,11 @@ namespace EffectInfo
                                         result += ToInfo("收入", $"0/{base_value * 80 / 100}~{base_value * 150 / 100}", -1) + tmp;
                                         expect = base_value * (150 + 80) / 2 / 100 * success_rate / 100 / shop_period;
                                     }
-
-                                    result += "\n";
-                                    result += ToInfoAdd("每月收入期望", expect, -1);
+                                    if(expect>0)
+                                    {
+                                        result += "\n";
+                                        result += ToInfoAdd("每月收入期望", expect, -1);
+                                    }
                                 }
                             }
                             else if(shopEventConfig.ItemList.Count > 0&& shopEventConfig.ItemGradeProbList.Count <= 0)//ItemList:宝井等资源建筑，ItemGradeProbList:不知道是什么
@@ -501,7 +503,7 @@ namespace EffectInfo
                                         if(relative_chance==0)
                                             tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×0(0)%)", -2);
                                         else
-                                            tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×{relative_chance}({abs_chance.ToString("f2")}%)", -2);
+                                            tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×{relative_chance}({abs_chance.ToString("f2")})%", -2);
                                     }
                                     result += ToInfoPercent("成功率", 100.0 - fail_chance, -1) + "\n"
                                         + ToInfo("物品相对概率(绝对概率)", "", -1)
