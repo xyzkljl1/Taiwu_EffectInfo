@@ -1100,7 +1100,8 @@ namespace EffectInfo
 			return $"{value}";
 		}
 		//level为负时不输出抬头的level
-		unsafe static string ToInfo(string title, string item, int msgLevel)
+		//TODO:到底tmd怎么才能对齐？
+		static string ToInfo(string title, string item, int msgLevel)
         {
             var levelabs = Math.Abs(msgLevel);
             if (levelabs > EffectInfoBackend.InfoLevel)
