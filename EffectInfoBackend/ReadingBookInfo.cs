@@ -276,7 +276,10 @@ namespace EffectInfo
                 //此项未实装
                 SpecifyBuildingEffect buildingEffect = DomainManager.Building.GetSpecifyBuildingEffect(_taiwuChar.GetLocation());
                 if (buildingEffect != null)
-                    building_result+= ToInfoAdd("建筑(未实装)", buildingEffect.AddReadingCombatSkillBookEfficiency, -3);
+                {
+                    building_result += ToInfoAdd("建筑", buildingEffect.AddReadingCombatSkillBookEfficiency, -3);
+                    building_bonus = buildingEffect.AddReadingCombatSkillBookEfficiency;
+                }
 
             }
             //特性、建筑、参考书

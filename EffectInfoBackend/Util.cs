@@ -1091,8 +1091,16 @@ namespace EffectInfo
 			FieldInfo field_info = type.GetField(field_name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 			field_info.SetValue(instance, value);
         }
-        //level为负时不输出抬头的level
-        unsafe static string ToInfo(string title, string item, int msgLevel)
+		public static string ToStringSign(int value)
+        {
+			if (value > 0)
+				return $"+{value}";
+			if (value < 0)
+				return $"{value}";
+			return $"{value}";
+		}
+		//level为负时不输出抬头的level
+		unsafe static string ToInfo(string title, string item, int msgLevel)
         {
             var levelabs = Math.Abs(msgLevel);
             if (levelabs > EffectInfoBackend.InfoLevel)

@@ -3,6 +3,7 @@ using GameData.Domains;
 using GameData.Domains.Building;
 using GameData.Domains.Character;
 using GameData.Domains.Item;
+using GameData.Domains.Map;
 using GameData.Domains.Organization;
 using GameData.Domains.Organization.Display;
 using GameData.Domains.SpecialEffect;
@@ -117,11 +118,34 @@ namespace EffectInfo
                     tmp_check_value *= (double)(blockData.Level + 10);
                     result += ToInfoMulti("建筑等级+10", (double)(blockData.Level + 10), -1);
 
-                    double factor = (double)__instance.CalcResourceChangeFactor(blockData);
-                    tmp_check_value *= factor;
-                    result += ToInfoMulti("依赖建筑", factor, -1);
+                    {//常数
+                        double factor = (double)__instance.CalcResourceChangeFactor(blockData);
+                        tmp_check_value *= factor;
+                        result += ToInfoMulti("资源点系数", factor, -1);
+                    }
+                    //取整
                     check_value = (int)tmp_check_value;
+                    {//周围资源点个数
+                        int resource_block_count = 0;
+                        Location location = DomainManager.Taiwu.GetTaiwuVillageLocation();
+                        if (blockData.TemplateId >= 0)
+                        {
+                            Config.BuildingBlockItem configData = Config.BuildingBlock.Instance[blockData.TemplateId];
+                            BuildingAreaData areaData = DomainManager.Building.GetElement_BuildingAreas(location);
 
+                            List<short> neighborList = new List<short>();
+                            areaData.GetNeighborBlocks(blockKey.BuildingBlockIndex, configData.Width, neighborList);
+                            for (int i = 0; i < neighborList.Count; i++)
+                            {
+                                BuildingBlockKey tmp_blockKey = new BuildingBlockKey(location.AreaId, location.BlockId, neighborList[i]);
+                                BuildingBlockData neighborBlockData;
+                                if (__instance.TryGetElement_BuildingBlocks(tmp_blockKey, out neighborBlockData) && configData.DependBuildings.Contains(neighborBlockData.TemplateId))
+                                    resource_block_count++;
+                            }
+                        }
+                        result += ToInfoMulti("资源点个数",resource_block_count, -1);
+                        check_value *= resource_block_count;
+                    }
                     result += ToInfoAdd("总合校验值", check_value, -1);
                 }
             }
@@ -151,20 +175,22 @@ namespace EffectInfo
                 string require_name = "";
                 if (config.RequireSafety != 0)
                 {
-                    //取最大安定的十个
                     if (settlements.Count > 10)
-                        settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
+                        settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement(  (short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety() );
+                    if(config.RequireSafety<0)
+                        settlements.Reverse();
                     require = Math.Abs(config.RequireSafety);
-                    need_above_require = config.RequireSafety > 0;//注意此处不能是>=,否则无法复现游戏自带bug
+                    need_above_require = config.RequireSafety > 0;
                     require_name = "安定";
                 }
                 else
                 {
-                    //仍然取安定，因为有bug
                     if (settlements.Count > 10)
-                        settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetSafety() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetSafety());
-                    require = Math.Abs(config.RequireSafety);
-                    need_above_require = config.RequireSafety > 0;//注意此处不能是>=,否则无法复现游戏自带bug
+                        settlements.Sort((SettlementDisplayData l, SettlementDisplayData r) => DomainManager.Organization.GetSettlement((short)r.SettlementId).GetCulture() - DomainManager.Organization.GetSettlement((short)l.SettlementId).GetCulture());
+                    if (config.RequireCulture < 0)
+                        settlements.Reverse();
+                    require = Math.Abs(config.RequireCulture);
+                    need_above_require = config.RequireCulture > 0;
                     require_name = "文化";
                 }
                 for (int i = 0; i < Math.Min(10, settlements.Count); i++)
@@ -190,7 +216,6 @@ namespace EffectInfo
                             if (settlement_name == "")
                                 settlement_name = "未知";
                         }
-
                         var settlement_property = 0;
                         if (config.RequireSafety != 0)//Safety判断在前
                             settlement_property = settlement.GetSafety();
@@ -211,10 +236,11 @@ namespace EffectInfo
                             tmp += ToInfoAdd($"{settlement_name}{settlement_property}(不计)", 0, -3);
                     }
                 var sign_str = need_above_require ? ">" : "<";
+                var direction_str = need_above_require ? "前" : "后";
                 if (config.RequireSafety != 0)
-                    tmp = ToInfoPercent($"安定前10城镇的{require_name}({sign_str}{require})", total, -2) + tmp;
+                    tmp = ToInfoPercent($"{require_name}{direction_str}10城镇({sign_str}{require}有效)", total, -2) + tmp;
                 else
-                    tmp = ToInfoPercent($"安定前10城镇的{require_name}({sign_str}{require})(bug)", total, -2) + tmp;
+                    tmp = ToInfoPercent($"{require_name}{direction_str}10城镇({sign_str}{require}有效)", total, -2) + tmp;
             }
             return tmp;
         }
@@ -262,7 +288,7 @@ namespace EffectInfo
                             {
                                 var _skillname = "";
                                 var max_attainment = 0;
-                                for (sbyte _skillType=0;_skillType<16;++_skillType)
+                                for (sbyte _skillType=0;_skillType<14;++_skillType)//醉了，被官方bug误导越界了，这里是武学造诣，应该是14
                                 {
                                     var value = manageChar.GetCombatSkillAttainment(_skillType);
                                     if(value > max_attainment)
@@ -436,7 +462,7 @@ namespace EffectInfo
                                     }
                                 }
                             }
-                            else if(shopEventConfig.ItemList.Count > 0&& shopEventConfig.ItemGradeProbList.Count <= 0)//ItemList:宝井等资源建筑，ItemGradeProbList:不知道是什么
+                            else if(shopEventConfig.ItemList.Count > 0)//ItemList:宝井等资源建筑，ItemGradeProbList:不知道是什么
                             {
                                 tmp = "";
                                 double fail_chance=100.0;
@@ -512,11 +538,10 @@ namespace EffectInfo
                                         var name = itemLists[amount];
                                         var relative_chance= Math.Clamp(amount + base_chance, 0, 100);
                                         double abs_chance =item_abs_chances[i]*100;
-                                        var sign_str = relative_chance >= 0 ? "+" : "";
                                         if(relative_chance==0)
-                                            tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×0(0)%)", -2);
+                                            tmp += ToInfo($"{name}({ToStringSign(amount)}%)", $"×0(0)%", -2);
                                         else
-                                            tmp += ToInfo($"{name}({sign_str}{amount}%)", $"×{relative_chance}({abs_chance.ToString("f2")})%", -2);
+                                            tmp += ToInfo($"{name}({ToStringSign(amount)}%)", $"×{relative_chance}({abs_chance.ToString("f2")})%", -2);
                                     }
                                     result += ToInfoPercent("成功率", 100.0 - fail_chance, -1) + "\n"
                                         + ToInfo("物品相对概率(绝对概率)", "", -1)
@@ -529,8 +554,7 @@ namespace EffectInfo
                                     {
                                         int item_chance = itemPair.Key;
                                         int prob = Math.Clamp(item_chance + base_chance, 0, 100);
-                                        var sign_str = prob >= 0 ? "+" : "";
-                                        tmp += ToInfoPercent($"{itemPair.Value}({sign_str}{item_chance}%)", prob, -2);
+                                        tmp += ToInfoPercent($"{itemPair.Value}({ToStringSign(item_chance)}%)", prob, -2);
                                     }
                                     result += ToInfoPercent("成功率", 100.0 - fail_chance, -1) + "\n" 
                                         + ToInfo("物品相对概率", "", -1)
@@ -538,6 +562,52 @@ namespace EffectInfo
                                         + tmp;
                                 }
                             }
+                            //招人建筑
+                            //招人部分在AcceptBuildingBlockRecruitPeople，根据等级获得资质或魅力加成
+                            else if (shopEventConfig.RecruitPeopleProb.Count > 0)
+                            {
+                                tmp = "";
+                                int attainment = __instance.GetBuildingAttainment(blockData, blockKey, true);
+                                int base_chance_min = attainment/__instance.AttainmentToProb+ blockData.Level+ shopEventConfig.RecruitPeopleProbAdd[0];
+                                int base_chance_max = attainment / __instance.AttainmentToProb + blockData.Level+ shopEventConfig.RecruitPeopleProbAdd[1];
+                                tmp += ToInfo("招募相对概率", "", -1);
+                                tmp += ToInfoNote("每个物品分别以相对概率决定是否入围，再在所有入围物品中以均等概率选一个作为最终产物，当且仅当入围物品为0时失败", -1);
+                                tmp += ToInfo("基础概率",$"{base_chance_min}~{base_chance_max}%", -2);
+                                tmp += ToInfoNote("每个物品的相对概率=基础概率+物品概率加成", -2);
+                                tmp += ToInfoNote("先随机出一个概率，再以此概率随机检测是否成功",-2);
+                                tmp += ToInfoAdd("造诣总合/3", attainment, -3);
+                                tmp += ToInfoDivision("倍率", __instance.AttainmentToProb, -3);
+                                tmp += ToInfoAdd("建筑等级", blockData.Level, -3);
+                                tmp += ToInfo("随机",$"{shopEventConfig.RecruitPeopleProbAdd[0]}~{ shopEventConfig.RecruitPeopleProbAdd[1]}" , -3);
+                                //如同物品，每个等级以相对概率入围，最后选出一个等级，然后根据等级获得加成                               
+                                for (int level = 0; level < shopEventConfig.RecruitPeopleProb.Count; level++)
+                                {
+                                    string title = "";
+                                    //获得该等级的加成
+                                    if (shopEventConfig.AttainmentFix.Count > 0)
+                                    { 
+                                        //该加成是正态随机资质时期望(40+0.25*x)的x部分，GenerateRandomAttributeValue
+                                        //如果有其它效果导致获得加成，也会导致期望改变，此处忽略，资质范围[0-100]，此处不可能超出范围，忽略
+                                        float mean = 40f + 25f * ((float)shopEventConfig.AttainmentFix[level] / 100f);
+                                        title = $"{Config.LifeSkillType.Instance[config.RequireLifeSkillType].Name}期望:"
+                                                + $"{mean.ToString("f2")}";
+                                    }
+                                    else if (shopEventConfig.CharacterPropertyFix == 101)
+                                    {
+                                        //同样不是加成，先完全随机再调整过去
+                                        //AdjustToBaseCharm
+                                        title = $"魅力趋近{shopEventConfig.CharacterPropertyFixNum[level]}";
+                                    }
+                                    int add_chance = shopEventConfig.RecruitPeopleProb[level];
+                                    tmp += ToInfo($"{title}({ToStringSign(add_chance)}%)",$"{add_chance+base_chance_min}~{add_chance+base_chance_max}%",-2);
+                                }
+                                if (shopEventConfig.AttainmentFix.Count > 0)
+                                {
+                                    tmp += ToInfoNote("资质为正态随机,范围0~100", -2);
+                                }
+                                result += "\n"+tmp;
+                            }
+
                         }
                 }
             }
