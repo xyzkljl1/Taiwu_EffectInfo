@@ -314,8 +314,6 @@ namespace EffectInfo
                     //此处isAverage恒为false
                 }
                 tmp = ToInfoAdd("总造诣", check_value, -1)+tmp;
-                if (config.IsCollectResourceBuilding)//哈批游戏代码，对于所有建筑都用的建筑所需造诣显示效率，但实际计算并不是
-                    tmp += ToInfoNote("当前版本官方显示的工作效率可能不正确,请以过月实际增加的进度的为准",-1);
                 tmp += ToInfoDivision("建筑产出需求", config.MaxProduceValue, -1);
                 double double_check_value = (double)100.0 * (double)check_value / config.MaxProduceValue;
                 result = tmp + ToInfo("总合校验值", $"{double_check_value.ToString("f2")}%", -1);
@@ -323,8 +321,8 @@ namespace EffectInfo
                 if (check_value>0)
                 {
                     shop_period = (config.MaxProduceValue+check_value-1) / check_value;//向上取整
-                    result += ToInfo("等效效率", $"{((double)100/shop_period).ToString("f2")}%", -1)
-                            + ToInfoNote("因为溢出进度不保留",-1);
+                    result +=  ToInfoNote("由于溢出进度不保留,效率会浪费一部分", -1)
+                             + ToInfoNote($"等效效率:{((double)100 / shop_period).ToString("f2")}%", -1);
                 }
                 result += "\n";
                 //成功率和基础产出

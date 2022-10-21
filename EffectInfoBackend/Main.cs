@@ -646,9 +646,9 @@ namespace EffectInfo
             }
             {
                 //装备，食物，技能加值
+                //不受addEffectPercent影响
                 EatingItems eatingItems = character.GetEatingItems();
                 for (int i = 0; i < CT; i++)
-                    if (canAdd[i])
                     {
                         sbyte valueSumType = 1;//1代笔加值，2代表减值，0都包括
                         dirty_tag = false;
@@ -657,8 +657,7 @@ namespace EffectInfo
                         tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
                         tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType[i], valueSumType);
                         tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
-                        tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                        int total = sum * addEffectPercent[i] / 100;
+                        int total = sum;
                         check_value[i] += total;
                         if (ShowUseless || dirty_tag)
                         {
@@ -709,27 +708,25 @@ namespace EffectInfo
                 //装备，食物，技能减值
                 EatingItems eatingItems = character.GetEatingItems();
                 for (int i = 0; i < CT; i++)
-                    if (canAdd[i])
+                {
+                    sbyte valueSumType = 2;//1代笔加值，2代表减值，0都包括
+                    dirty_tag = false;
+                    var tmp = "";
+                    int sum = 0;
+                    tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
+                    tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType[i], valueSumType);
+                    tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
+                    int total = sum;
+                    check_value[i] += total;
+                    if (ShowUseless || dirty_tag)
                     {
-                        sbyte valueSumType = 2;//1代笔加值，2代表减值，0都包括
-                        dirty_tag = false;
-                        var tmp = "";
-                        int sum = 0;
-                        tmp += PackGetPropertyBonusOfEquipmentsInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
-                        tmp += PackGetCharacterPropertyBonusInfo(ref sum, ref dirty_tag, eatingItems, propertyType[i], valueSumType);
-                        tmp += PackGetPropertyBonusOfCombatSkillEquippingAndBreakoutInfo(ref sum, ref dirty_tag, character, propertyType[i], valueSumType);
-                        tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                        int total = sum * addEffectPercent[i] / 100;
-                        check_value[i] += total;
-                        if (ShowUseless || dirty_tag)
-                        {
-                            result[i] += ToInfoAdd("属性减值", total, 1);
-                            result[i] += tmp;
-                        }
+                        result[i] += ToInfoAdd("属性减值", total, 1);
+                        result[i] += tmp;
                     }
+                }
                 //特殊效果减值
                 for (sbyte i = 0; i < CT; i = (sbyte)(i + 1))
-                    if (canAdd[i])
+                    if (canReduce[i])
                     {
                         sbyte valueSumType = 2;
                         var base_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 0, -1, -1, -1, valueSumType);
@@ -760,27 +757,27 @@ namespace EffectInfo
                 if (canAdd[i])
                 {
                     sbyte valueSumType = 1;
-                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
+                    var feature_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
                     //modifyType是1获得乘算加值
                     var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoAdd("特性", feture_value, 2);
+                    tmp += ToInfoAdd("特性", feature_value, 2);
                     tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], valueSumType);
                     tmp += ToInfoAdd("效果", effect_value, 2);
                     tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
                     tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                    percent += (feture_value + effect_value) * addEffectPercent[i] / 100;
+                    percent += (feature_value + effect_value) * addEffectPercent[i] / 100;
                 }
                 if (canReduce[i])
                 {
                     sbyte valueSumType = 2;
-                    var feture_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
+                    var feature_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
                     var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoAdd("特性", feture_value, 2);
+                    tmp += ToInfoAdd("特性", feature_value, 2);
                     tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], valueSumType);
                     tmp += ToInfoAdd("效果", effect_value, 2);
                     tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
                     tmp += ToInfoPercent("乘算", reduceEffectPercent[i], 2);
-                    percent += (feture_value + effect_value) * reduceEffectPercent[i] / 100;
+                    percent += (feature_value + effect_value) * reduceEffectPercent[i] / 100;
                 }
                 if (ShowUseless || dirty_tag)
                 {
@@ -790,24 +787,23 @@ namespace EffectInfo
                 check_value[i] = check_value[i] * percent / 100;
             }
             //蜜汁倍率
-            if(!isHit)
-                for (sbyte i = 0; i < 4; i = (sbyte)(i + 1))
-                {
-                    ValueTuple<int, int> totalPercent = DomainManager.SpecialEffect.GetTotalPercentModifyValue(charId, -1, (ushort)fieldId[i]);
-                    totalPercent.Item1 = (canAdd[i] ? (totalPercent.Item1 * addEffectPercent[i] / 100) : 0);
-                    totalPercent.Item2 = (canReduce[i] ? (totalPercent.Item2 * reduceEffectPercent[i] / 100) : 0);
-                    var value = (100 + totalPercent.Item1 + totalPercent.Item2);
+            for (sbyte i = 0; i < 4; i = (sbyte)(i + 1))
+            {
+                ValueTuple<int, int> totalPercent = DomainManager.SpecialEffect.GetTotalPercentModifyValue(charId, -1, (ushort)fieldId[i]);
+                totalPercent.Item1 = (canAdd[i] ? (totalPercent.Item1 * addEffectPercent[i] / 100) : 0);
+                totalPercent.Item2 = (canReduce[i] ? (totalPercent.Item2 * reduceEffectPercent[i] / 100) : 0);
+                var value = (100 + totalPercent.Item1 + totalPercent.Item2);
 
-                    var tmp = "";
-                    dirty_tag = false;
-                    check_value[i] = check_value[i] * value / 100;
-                    tmp += ToInfoPercent("效果倍率", value, 1);
-                    tmp += ToInfoAdd("基础", 100, 2);
-                    tmp += ToInfoAdd("最高加值", totalPercent.Item1, 2);
-                    tmp += ToInfoAdd("最低减值", totalPercent.Item2, 2);
-                    if (ShowUseless || dirty_tag)
-                        result[i] += tmp;
-                }
+                var tmp = "";
+                dirty_tag = false;
+                check_value[i] = check_value[i] * value / 100;
+                tmp += ToInfoPercent("效果倍率", value, 1);
+                tmp += ToInfoAdd("基础", 100, 2);
+                tmp += ToInfoAdd("最高加值", totalPercent.Item1, 2);
+                tmp += ToInfoAdd("最低减值", totalPercent.Item2, 2);
+                if (ShowUseless || dirty_tag)
+                    result[i] += tmp;
+            }
             for (int i = 0; i < CT; i++)
             {
                 if (ShowUseless || check_value[i] < GlobalConfig.Instance.MinValueOfAttackAndDefenseAttributes)
