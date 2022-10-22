@@ -112,7 +112,13 @@ namespace EffectInfo
                     int bonus = 100;
                     result += GetReadingSpeedBonusInfo(ref bonus, __instance, readingPage, false);
                     check_value = check_value * bonus / 100;
+                    var target_value= __instance.GetCurrReadingEfficiency(context);
                     result += ToInfoAdd("总合校验值", check_value, -1);
+                    if(target_value!=check_value)
+                    {
+                        result += ToInfo("和面板不一致!", "", -1);
+                        result += ToInfoNote("如果没有其它影响数值的mod，请报数值bug", -1);
+                    }
                     result = $"读书效率:{__instance.GetCurrReadingEfficiency(context)}%\n" + result;
                 }
                 else

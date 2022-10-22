@@ -25,6 +25,7 @@ namespace EffectInfo
         public static readonly string PATH_ParentDir = "\\Taiwu_Mod\\EffectInfo\\";
         public static readonly string PATH_CharacterAttribute = $"{PATH_ParentDir}Cache_GetCharacterAttribute.txt";
 
+        //LocalStringManager的key来自LanguageKey
         //有的属性不在property里,为了省事，视作在ECharacterPropertyReferencedType后面的enum
         public enum CustomPropertyIdEnum
         {
@@ -42,9 +43,10 @@ namespace EffectInfo
         public static int currentCharId=-1;
         public static bool duringSkillBreakPlateUpdate=false;
         public static DateTime lastUpdate=DateTime.MinValue;
+        public static GameObject keyBoardMonitorObject = null;
         Harmony harmony;
         //property id 到mousetip的映射
-        public static Dictionary<short, MouseTipDisplayer> mouseTipDisplayers = new Dictionary<short, MouseTipDisplayer>();
+        public static Dictionary<short, MouseTipDisplayer> characterMouseTipDisplayers = new Dictionary<short, MouseTipDisplayer>();
         public static Dictionary<short, string> originalText = new Dictionary<short, string>();
         public static Dictionary<string, short> MyKey2PropertyValue = new Dictionary<string,short> {
             {"__Attraction",(short)ECharacterPropertyReferencedType.Attraction },
@@ -55,7 +57,7 @@ namespace EffectInfo
             {"__MainAttribute3",(short)ECharacterPropertyReferencedType.Vitality },
             {"__MainAttribute4",(short)ECharacterPropertyReferencedType.Energy },
             {"__MainAttribute5",(short)ECharacterPropertyReferencedType.Intelligence },
-
+            //命中/攻防对于人物属性面板和战斗属性面板的显示共用，二者在不同的文件不会冲突
             {"__HitValue0",(short)ECharacterPropertyReferencedType.HitRateStrength },
             {"__HitValue1",(short)ECharacterPropertyReferencedType.HitRateTechnique },
             {"__HitValue2",(short)ECharacterPropertyReferencedType.HitRateSpeed },
@@ -88,12 +90,13 @@ namespace EffectInfo
             {"__RecoveryMainAttribute5",(short)CustomPropertyIdEnum.RecoverMainAttribute5 },
             {"__Fertility",(short)ECharacterPropertyReferencedType.Fertility },
 
+
+
         };
         public override void Dispose()
         {
             if (harmony != null)
                 harmony.UnpatchSelf();
-
         }
 
         public override void Initialize()
@@ -105,7 +108,6 @@ namespace EffectInfo
         {
             //不需要showUseless
             ModManager.GetSetting(ModIdStr, "On", ref On);
-            ModManager.GetSetting(ModIdStr, "InfoLevel", ref InfoLevel);
         }
         public static FieldType GetPrivateField<FieldType>(object instance, string field_name)
         {
@@ -142,7 +144,7 @@ namespace EffectInfo
                     UnityEngine.Debug.Log($"EffectInfo:记录mouseTipDisplayer {propertyId}");
                     originalText[propertyId] = "";//属性恢复的文本是动态的，此时尚未设置内容
 //                    mouseTipDisplayer.PresetParam[0] = "asdsads";
-                    mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                    characterMouseTipDisplayers[propertyId] = mouseTipDisplayer;
                 }
             }
         }
@@ -199,7 +201,7 @@ namespace EffectInfo
                             //由于每次都会重新创建，不能从originalText获取
                             //这游戏更新文本从来不写公告，醉了
                             originalText[propertyId] = CharacterPropertyDisplay.Instance[propertyId].Desc.Replace("\n<SpName=mousetip_meili", "<SpName=mousetip_meili");
-                            mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                            characterMouseTipDisplayers[propertyId] = mouseTipDisplayer;
                             //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
                         }
                     }
@@ -212,8 +214,9 @@ namespace EffectInfo
                         if (mouseTipDisplayer.PresetParam != null && mouseTipDisplayer.PresetParam.Length > 1)
                         {
                             UnityEngine.Debug.Log($"EffectInfo:4记录mouseTipDisplayer {propertyId}");
-                            originalText[propertyId] = LocalStringManager.Get(1450); //由于每次都会重新创建，不能从originalText获取
-                            mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                            ushort lk_key = LanguageKey.LanguageKeyToId("LK_Main_SummaryInfo_Gender_TipContent");
+                            originalText[propertyId] = LocalStringManager.Get(lk_key); //由于每次都会重新创建，不能从originalText获取,LocalStringManager.Get的key每个版本会变，因此反射获取
+                            characterMouseTipDisplayers[propertyId] = mouseTipDisplayer;
                             //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
                         }
                     }
@@ -238,7 +241,7 @@ namespace EffectInfo
             {
                 UnityEngine.Debug.Log($"EffectInfo:4记录mouseTipDisplayer {propertyId}");
                 originalText[propertyId] = CharacterPropertyDisplay.Instance[propertyId].Desc;
-                mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                characterMouseTipDisplayers[propertyId] = mouseTipDisplayer;
                 //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
             }
         }
@@ -257,7 +260,7 @@ namespace EffectInfo
             {
                 UnityEngine.Debug.Log($"EffectInfo:5记录mouseTipDisplayer {propertyId}");
                 originalText[propertyId] = CharacterPropertyDisplay.Instance[propertyId].Desc;
-                mouseTipDisplayers[propertyId] = mouseTipDisplayer;
+                characterMouseTipDisplayers[propertyId] = mouseTipDisplayer;
                 //UnityEngine.Debug.Log($"{propertyId} {mouseTipDisplayer.PresetParam[0]}");
             }
         }
@@ -299,7 +302,9 @@ namespace EffectInfo
                     if(id!=EffectInfoFrontend.currentCharId)
                         throw new IOException("Invalid Effect Info Data");
                     var tmp_text = "";
-                    foreach (var line in lines)
+                    for(int i=1;i<lines.Length;i++)
+                    {
+                        var line = lines[i];
                         if (line.StartsWith("__")) //一条属性结束
                         {
                             if (MyKey2PropertyValue.ContainsKey(line))
@@ -307,16 +312,10 @@ namespace EffectInfo
                             tmp_text = "";
                         }
                         else if (line.Length > 0)
-                        {
-                            int level = 0;
-                            if (line[0] >= '0' && line[0] <= '9')
-                                level = Int32.Parse(line.Substring(0, 1));
-                            //目前在后端已经处理，但是前端代码不需要改动
-                            if (level <= InfoLevel)
-                                tmp_text += $"{line.Substring(1)}\n";
-                        }
+                            tmp_text += line + "\n";
+                    }
                 }
-                catch (IOException e)
+                catch (IOException)
                 {
                     property_text.Clear();//读取失败可能是文件正在被写入，视作旧信息已失效直接清空
                     return;
@@ -324,7 +323,7 @@ namespace EffectInfo
                 // File.WriteAllText(path+$"{test++}.txt", $"{time}"+property_text[6]);
             }
             //修改mouseTip的文本
-            foreach (var pair in EffectInfoFrontend.mouseTipDisplayers)
+            foreach (var pair in EffectInfoFrontend.characterMouseTipDisplayers)
             {
                 var propertyId = pair.Key;
                 var mouseTipDisplayer = pair.Value;
@@ -350,7 +349,7 @@ namespace EffectInfo
                 return;
             if (duringSkillBreakPlateUpdate)
                 return;
-            if (!mouseTipDisplayers.ContainsValue(__instance))
+            if (!characterMouseTipDisplayers.ContainsValue(__instance))
                 return;            
             ReloadAllText();
         }

@@ -7,7 +7,7 @@
     <ProjectGuid>{79708D04-8FA2-4268-A59D-9FE13429FA11}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>EffectInfoFrontend</RootNamespace>
+    <RootNamespace>EffectInfo</RootNamespace>
     <AssemblyName>EffectInfoFrontend</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -68,6 +68,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BuildingManageInfo.cs" />
+    <Compile Include="CombatDataCompare.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ReadingBookInfo.cs" />

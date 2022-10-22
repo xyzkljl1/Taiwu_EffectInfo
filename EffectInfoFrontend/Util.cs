@@ -82,6 +82,12 @@ namespace EffectInfo
 	}
 
 	public partial class EffectInfoFrontend {
+		public static FieldType GetValue<FieldType>(object instance, string field_name, BindingFlags flags)
+		{
+			Type type = instance.GetType();
+			FieldInfo field_info = type.GetField(field_name, flags);
+			return (FieldType)field_info.GetValue(instance);
+		}
 		public static void CallPrivateMethod(object instance, string method_name, object[] paras)
 		{
 			Type type = instance.GetType();

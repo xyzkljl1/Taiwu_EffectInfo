@@ -1074,7 +1074,31 @@ namespace EffectInfo
 				}
 			return (ReturnType)method_info.Invoke(instance, paras);
 		}
-
+		public static void CallPrivateMethod(object instance, string method_name, object[] paras)
+		{
+			Type type = instance.GetType();
+			MethodInfo method_info = type.GetMethod(method_name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+			var para_infos = method_info.GetParameters();
+			if (paras.Length != paras.Length)
+			{
+				AdaptableLog.Info($"EffectInfo失效:{method_name}");
+				return ;
+			}
+			for (int i = 0; i < para_infos.Length; i++)
+				if (para_infos[i].ParameterType != paras[i].GetType())
+				{
+					AdaptableLog.Info($"EffectInfo失效:{method_name} {para_infos[i].Name}");
+					return ;
+				}
+			method_info.Invoke(instance, paras);
+		}
+		public static string GetSpecialEffectName(SpecialEffectBase effect)
+        {
+			var name = effect.Type.ToString();
+			if (name.Contains('.'))
+				name = name.Substring(name.LastIndexOf('.') + 1);
+			return name;
+		}
 
 		public static string GetEquipmentName(ItemKey itemKey)
 		{
@@ -1099,14 +1123,14 @@ namespace EffectInfo
 				return $"{value}";
 			return $"{value}";
 		}
-		//level为负时不输出抬头的level
+		//level取绝对值，正负号是历史遗留问题
 		//TODO:到底tmd怎么才能对齐？
 		static string ToInfo(string title, string item, int msgLevel)
         {
             var levelabs = Math.Abs(msgLevel);
             if (levelabs > EffectInfoBackend.InfoLevel)
                 return "";
-            string result = msgLevel >= 0 ? $"{msgLevel} " : "";
+            string result = "";
             if (levelabs == 1)
                 result += $"<color=#pinkyellow>·{title}\t\t\t\t\t\t{item}</color>\n";//align会改变整行
             else if (levelabs == 2)
