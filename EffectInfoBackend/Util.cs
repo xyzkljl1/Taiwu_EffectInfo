@@ -3,6 +3,7 @@ using GameData.Domains.Character;
 using GameData.Domains.CombatSkill;
 using GameData.Domains.Item;
 using GameData.Domains.SpecialEffect;
+using GameData.Domains.SpecialEffect.CombatSkill;
 using GameData.Utilities;
 using System;
 using System.Collections.Generic;
@@ -1095,19 +1096,20 @@ namespace EffectInfo
 		}
 		public static string GetSpecialEffectName(SpecialEffectBase effect)
         {
-			/*
-			var pre = "";
+			//注意区分同名COmbatSkill和SpecialEffect
+			//功法产生的specialEffect是CombatSkillEffectBase，可以从skillKey获得功法
+			var name = "";
+			var combatSkillEffect = effect as CombatSkillEffectBase;
+			if(combatSkillEffect!=null && combatSkillEffect.SkillKey.SkillTemplateId>=0)
             {
-				int ct = Config.SpecialEffect.Instance.Count;
-				if(effect.Id>=0&&effect.Id<ct)
-                {
-					Config.SpecialEffectItem configData = Config.SpecialEffect.Instance[(short)effect.Id];
-					pre= configData.Name;
-				}
-			}*/
-			var name = effect.GetType().ToString();
-			if (name.Contains('.'))
-				name = name.Substring(name.LastIndexOf('.') + 1);
+				name = Config.CombatSkill.Instance[combatSkillEffect.SkillKey.SkillTemplateId].Name;
+            }
+			else
+            {
+				name = effect.GetType().ToString();
+				if (name.Contains('.'))
+					name = name.Substring(name.LastIndexOf('.') + 1);
+			}
 			return name;
 		}
 
