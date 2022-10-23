@@ -1095,7 +1095,17 @@ namespace EffectInfo
 		}
 		public static string GetSpecialEffectName(SpecialEffectBase effect)
         {
-			var name = effect.Type.ToString();
+			/*
+			var pre = "";
+            {
+				int ct = Config.SpecialEffect.Instance.Count;
+				if(effect.Id>=0&&effect.Id<ct)
+                {
+					Config.SpecialEffectItem configData = Config.SpecialEffect.Instance[(short)effect.Id];
+					pre= configData.Name;
+				}
+			}*/
+			var name = effect.GetType().ToString();
 			if (name.Contains('.'))
 				name = name.Substring(name.LastIndexOf('.') + 1);
 			return name;

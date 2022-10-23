@@ -125,7 +125,8 @@ namespace EffectInfo
             sbyte practiceLevel = skill.GetPracticeLevel();
             short power = skill.GetPower();
             check_value = check_value * practiceLevel / 100 * power / 100;
-            result += ToInfoPercent("修习度", practiceLevel, 3);
+            if(practiceLevel!=100)
+                result += ToInfoPercent("修习度", practiceLevel, 3);
             result += ToInfoPercent("威力", power, 3);
             //摧破的攻击
             //内外比例
@@ -163,6 +164,8 @@ namespace EffectInfo
             }
             return (check_value,result);
         }
+
+
         [HarmonyPostfix, HarmonyPatch(typeof(CombatDomain), "CalcAttackSkillDataCompare")]
         unsafe public static void CalcAttackSkillDataComparePatch(CombatDomain __instance,
             DamageCompareData ____damageCompareData,
@@ -192,16 +195,16 @@ namespace EffectInfo
             var myCompareData = new DamageCompareData();
             {
                 TestDamageFormulaData damageData = __instance.GetTestDamageFormulaData();
-                if (isMindHit)
+                if (!isMindHit)
                     for (int i = 0; i < 3; ++i)
-                        myCompareData.HitValue[i] = damageData.HitAfterFlaw[i];
+                        myCompareData.HitValue[i] = damageData.HitAfterFlaw[2-i];
                 else
-                    myCompareData.HitValue[0] = damageData.HitAfterFlaw[3];
-                if (isMindHit)
+                    myCompareData.HitValue[0] = damageData.HitAfterFlaw[0];
+                if (!isMindHit)
                     for (int i = 0; i < 3; ++i)
-                        myCompareData.AvoidValue[i] = damageData.AvoidAfterC[i];
+                        myCompareData.AvoidValue[i] = damageData.AvoidAfterC[2-i];
                 else
-                    myCompareData.AvoidValue[0] = damageData.AvoidAfterC[3];
+                    myCompareData.AvoidValue[0] = damageData.AvoidAfterC[0];
                 myCompareData.OuterAttackValue = damageData.PenetrateAfterC[0];
                 myCompareData.InnerAttackValue = damageData.PenetrateAfterC[1];
                 myCompareData.OuterDefendValue = damageData.PenetrateResistAfterC[0];
@@ -287,7 +290,7 @@ namespace EffectInfo
             //这些函数里有诸如显示tips和改变距离等不能调用两次的部分，由于该Mod旨在显示数值，不想取代原本的计算过程，所以不能调用这些函数
             //只好比较最终处理后的结果，如果有变化则加上说明
             {
-                string special_skills_text = ToInfoNote("这部分效果在最终阶段通过代码逻辑实现数值计算，较为复杂无法一一解析",1);
+                string special_skills_text = ToInfoNote("这部分效果通过代码逻辑计算，较为复杂无法一一解析",1);
                 Type type = typeof(Events);
                 FieldInfo field_info = type.GetField("_handlersDamageCompareDataCalcFinished", BindingFlags.Static|BindingFlags.NonPublic|BindingFlags.Instance);
                 if(field_info != null)
@@ -311,33 +314,35 @@ namespace EffectInfo
                             {
                                 var idx = 2 - hitType;
                                 if (myCompareData.HitValue[idx] != ____damageCompareData.HitValue[idx])
-                                    Cached_CombatCompareText[hitType] += ToInfo("复杂效果", $"=>{myCompareData.HitValue[idx]}", 1) + special_skills_text;
+                                    Cached_CombatCompareText[hitType] += ToInfo("复杂效果", $"=>{____damageCompareData.HitValue[idx]/100}", 1) + special_skills_text;
                                 if (myCompareData.AvoidValue[idx] != ____damageCompareData.AvoidValue[idx])
-                                    Cached_CombatCompareText[2 + hitType] += ToInfo("复杂效果", $"=>{myCompareData.AvoidValue[idx]}", 1) + special_skills_text;
+                                    Cached_CombatCompareText[3 + hitType] += ToInfo("复杂效果", $"=>{____damageCompareData.AvoidValue[idx] / 100}", 1) + special_skills_text;
                             }
                         }
                         else
                         {
                             if (myCompareData.HitValue[0] != ____damageCompareData.HitValue[0])
-                                Cached_CombatCompareText[0] += ToInfo("复杂效果", $"=>{myCompareData.HitValue[0]}", 1) + special_skills_text;
+                                Cached_CombatCompareText[0] += ToInfo("复杂效果", $"=>{____damageCompareData.HitValue[0] / 100}", 1) + special_skills_text;
                             if (myCompareData.AvoidValue[0] != ____damageCompareData.AvoidValue[0])
-                                Cached_CombatCompareText[3] += ToInfo("复杂效果", $"=>{myCompareData.AvoidValue[0]}", 1) + special_skills_text;
+                                Cached_CombatCompareText[3] += ToInfo("复杂效果", $"=>{____damageCompareData.AvoidValue[0] / 100}", 1) + special_skills_text;
                         }
 
                         if (myCompareData.OuterAttackValue != ____damageCompareData.OuterAttackValue)
-                            Cached_CombatCompareText[6] += ToInfo("复杂效果", $"=>{myCompareData.OuterAttackValue}", 1) + special_skills_text;
+                            Cached_CombatCompareText[6] += ToInfo("复杂效果", $"=>{____damageCompareData.OuterAttackValue / 100}", 1) + special_skills_text;
                         if (myCompareData.InnerAttackValue != ____damageCompareData.InnerAttackValue)
-                            Cached_CombatCompareText[7] += ToInfo("复杂效果", $"=>{myCompareData.InnerAttackValue}", 1) + special_skills_text;
+                            Cached_CombatCompareText[7] += ToInfo("复杂效果", $"=>{____damageCompareData.InnerAttackValue / 100}", 1) + special_skills_text;
                         if (myCompareData.OuterDefendValue != ____damageCompareData.OuterDefendValue)
-                            Cached_CombatCompareText[8] += ToInfo("复杂效果", $"=>{myCompareData.OuterDefendValue}", 1) + special_skills_text;
+                            Cached_CombatCompareText[8] += ToInfo("复杂效果", $"=>{____damageCompareData.OuterDefendValue / 100}", 1) + special_skills_text;
                         if (myCompareData.InnerDefendValue != ____damageCompareData.InnerDefendValue)
-                            Cached_CombatCompareText[9] += ToInfo("复杂效果", $"=>{myCompareData.InnerDefendValue}", 1) + special_skills_text;
+                            Cached_CombatCompareText[9] += ToInfo("复杂效果", $"=>{____damageCompareData.InnerDefendValue / 100}", 1) + special_skills_text;
                     }
 
                 }
             }
 
         }
+
+
         //attacker.GetHitValue(weapon,hitType,attacker.SkillAttackBodyPart,hitValue.Items[hitType], skillId, true)
         //defender.GetAvoidValue(hitType, attacker.SkillAttackBodyPart, skillId, false, true);
         unsafe public static string GetCombatHitOrAvoidInfo(bool isHit,int target_value,
@@ -381,7 +386,8 @@ namespace EffectInfo
                 HitOrAvoidInts addHitValues = move_skill.GetAddHitValueOnCast();
                 total = GlobalConfig.Instance.AgileSkillBaseAddHit * move_skill.GetPracticeLevel() / 100 * move_skill.GetPower() / 100 * addHitValues.Items[hitType] / 100;
                 tmp += ToInfoAdd("基础", GlobalConfig.Instance.AgileSkillBaseAddHit, -2);
-                tmp += ToInfoPercent("修习度", move_skill.GetPracticeLevel(), -2);
+                if(move_skill.GetPracticeLevel()!=100)
+                    tmp += ToInfoPercent("修习度", move_skill.GetPracticeLevel(), -2);
                 tmp += ToInfoPercent("威力", move_skill.GetPower(), -2);
                 tmp += ToInfoPercent("功法", addHitValues.Items[hitType], -2);
                 if(addHitValues.Items[hitType]!=0)
@@ -400,7 +406,8 @@ namespace EffectInfo
                 //注意此处乘法顺序和命中不同，影响取整
                 total = GlobalConfig.Instance.DefendSkillBaseAddAvoid * addAvoidValues.Items[hitType] / 100 * defend_skill.GetPracticeLevel() / 100 * defend_skill.GetPower() / 100 ;
                 tmp += ToInfoAdd("基础", GlobalConfig.Instance.DefendSkillBaseAddAvoid, -2);
-                tmp += ToInfoPercent("修习度", defend_skill.GetPracticeLevel(), -2);
+                if (defend_skill.GetPracticeLevel() != 100)
+                    tmp += ToInfoPercent("修习度", defend_skill.GetPracticeLevel(), -2);
                 tmp += ToInfoPercent("威力", defend_skill.GetPower(), -2);
                 tmp += ToInfoPercent("功法", addAvoidValues.Items[hitType], -2);
                 if (addAvoidValues.Items[hitType] != 0)
@@ -794,7 +801,8 @@ namespace EffectInfo
                                     * factor / 100;
                     var tmp = "";
                     tmp += ToInfoAdd("基础", GlobalConfig.Instance.DefendSkillBaseAddPenetrateResist, 2);
-                    tmp += ToInfoPercent("修习度", defendSkill.GetPracticeLevel(), 2);
+                    if(defendSkill.GetPracticeLevel()!=100)
+                        tmp += ToInfoPercent("修习度", defendSkill.GetPracticeLevel(), 2);
                     tmp += ToInfoPercent("威力", defendSkill.GetPower(), 2);
                     tmp += ToInfoPercent("功法", factor, 2);
                     if(factor!=0)
