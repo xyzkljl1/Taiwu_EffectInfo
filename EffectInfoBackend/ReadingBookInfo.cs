@@ -232,7 +232,7 @@ namespace EffectInfo
                 //造诣
                 {
                     skillAttainment = _taiwuChar.GetCombatSkillAttainment(book.GetCombatSkillType());
-                    //造诣不足时尝试从替代的生活技能造诣中取最高
+                    //尝试从替代的生活技能造诣中取最高
                     {
                         //skillAttainment = __instance.GetAttainmentWithSectApprovalBonus(skillConfig.SectId, skillAttainment, requiredAttainment);
                         short requiredAttainment = Config.SkillGradeData.Instance[book.GetGrade()].ReadingAttainmentRequirement;
@@ -243,7 +243,7 @@ namespace EffectInfo
                         tmp_list.Add(ToInfoAdd($"{Config.CombatSkillType.Instance[book.GetCombatSkillType()].Name}造诣", skillAttainment, -3));
                         int max_idx = 0;
 
-                        if (skillAttainment < requiredAttainment && orgTemplateId != 0)
+                        if (orgTemplateId != 0)
                         {
                             short settlementId = DomainManager.Organization.GetSettlementIdByOrgTemplateId(orgTemplateId);
                             short sectApprovingRate = DomainManager.Organization.GetElement_Sects(settlementId).CalcApprovingRate();
@@ -253,7 +253,7 @@ namespace EffectInfo
                                 LifeSkillShorts attainments = _taiwuChar.GetLifeSkillAttainments();
                                 foreach (sbyte lifeSkillType in config.RequirementSubstitutions)
                                 {
-                                    tmp_list.Add(ToInfoAdd($"{Config.LifeSkillType.Instance[lifeSkillType].Name}造诣", skillAttainment, -3));
+                                    tmp_list.Add(ToInfoAdd($"{Config.LifeSkillType.Instance[lifeSkillType].Name}造诣", attainments.Items[lifeSkillType], -3));
                                     if (maxAttainment < attainments.Items[lifeSkillType])
                                     {
                                         maxAttainment = attainments.Items[lifeSkillType];

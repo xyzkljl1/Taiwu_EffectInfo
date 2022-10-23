@@ -209,9 +209,7 @@ namespace EffectInfo
                     {
                         var combat_skill = charCombatSkills[skillTemplateId];
                         var value = combat_skill.GetCharPropertyBonus((short)propertyType, valueSumType);
-                        var template_id = combat_skill.GetId().SkillTemplateId;
-                        var cb_template = Config.CombatSkill.Instance[template_id];
-                        var name = cb_template.Name;
+                        var name = GetCombatSkillName(skillTemplateId);
                         if (value != 0)
                         {
                             result += ToInfoAdd(name, value, 3);
@@ -640,7 +638,7 @@ namespace EffectInfo
             }
             {
                 //装备，食物，技能加值
-                //不受addEffectPercent影响
+                //不受addEffectPercent影响，fuck茄子，又暗削
                 EatingItems eatingItems = character.GetEatingItems();
                 for (int i = 0; i < CT; i++)
                     {
@@ -751,28 +749,27 @@ namespace EffectInfo
                 if (canAdd[i])
                 {
                     sbyte valueSumType = 1;
-                    var feature_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
                     //modifyType是1获得乘算加值
                     var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoAdd("特性", feature_value, 2);
-                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], valueSumType);
                     tmp += ToInfoAdd("效果", effect_value, 2);
                     tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType).Item2;
                     tmp += ToInfoPercent("乘算", addEffectPercent[i], 2);
-                    percent += (feature_value + effect_value) * addEffectPercent[i] / 100;
+                    percent += effect_value * addEffectPercent[i] / 100;
                 }
                 if (canReduce[i])
                 {
                     sbyte valueSumType = 2;
-                    var feature_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], valueSumType });
                     var effect_value = DomainManager.SpecialEffect.GetModifyValue(charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType);
-                    tmp += ToInfoAdd("特性", feature_value, 2);
-                    tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], valueSumType);
                     tmp += ToInfoAdd("效果", effect_value, 2);
                     tmp += GetModifyValueInfo(ref dirty_tag, charId, (ushort)fieldId[i], 1, -1, -1, -1, valueSumType).Item2;
                     tmp += ToInfoPercent("乘算", reduceEffectPercent[i], 2);
-                    percent += (feature_value + effect_value) * reduceEffectPercent[i] / 100;
+                    percent += effect_value * reduceEffectPercent[i] / 100;
                 }
+                //fuck茄子，又暗改，特性改成不吃addEffectPercent了
+                var feature_value = CallPrivateMethod<int>(character, "GetPropertyBonusOfFeatures", new object[] { propertyType[i], (sbyte)0 });
+                tmp += ToInfoAdd("特性", feature_value, 2);
+                tmp += GetPropertyBonusOfFeaturesInfo(ref dirty_tag, character, propertyType[i], (sbyte)0);
+                percent += feature_value;
                 if (ShowUseless || dirty_tag)
                 {
                     result[i] += ToInfoPercent("整体乘算", percent, 1);

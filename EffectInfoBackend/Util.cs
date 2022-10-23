@@ -1,5 +1,6 @@
 ﻿using GameData.Domains;
 using GameData.Domains.Character;
+using GameData.Domains.CombatSkill;
 using GameData.Domains.Item;
 using GameData.Domains.SpecialEffect;
 using GameData.Utilities;
@@ -1020,13 +1021,13 @@ namespace EffectInfo
         }
 		public static string GetCombatSkillName(short combat_skill_id)
 		{
-			var charCombatSkills = DomainManager.CombatSkill.GetCharCombatSkills(combat_skill_id);
-			if (charCombatSkills == null || !charCombatSkills.ContainsKey(combat_skill_id))
-				return "";
-			var combat_skill = charCombatSkills[combat_skill_id];
-			var template_id = combat_skill.GetId().SkillTemplateId;
-			var cb_template = Config.CombatSkill.Instance[template_id];
-			return cb_template.Name;
+			if(combat_skill_id>0)
+            {
+				var cb_template = Config.CombatSkill.Instance[combat_skill_id];
+				if(cb_template!=null)
+					return cb_template.Name;
+			}
+			return "";
 		}
 		public static FieldType GetValue<FieldType>(object instance, string field_name, BindingFlags flags)
 		{
@@ -1217,6 +1218,9 @@ namespace EffectInfo
 		{
 			return ToInfo(title, $"×{value.ToString("f2")}%", infoLevel);
 		}
-
+		public static int Min(int a, int b, int c, int d)
+		{
+			return Math.Min(Math.Min(a, b), Math.Min(c, d));
+		}
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using GameData.Common;
+using GameData.DomainEvents;
 using GameData.Domains;
 using GameData.Domains.Character;
 using GameData.Domains.Combat;
@@ -10,9 +11,8 @@ using GameData.Utilities;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Reflection;
+using static GameData.DomainEvents.Events;
 
 namespace EffectInfo
 {
@@ -29,6 +29,126 @@ namespace EffectInfo
         "","","",
         "","",
         "",""};
+
+        //CalcAddHitValueOnCast/CalcAddPenetrateResist/...
+        //注意此处传入的field，常态的加值和战斗中施放造成的Attacker/Defender加值是不同的fieldId
+        //由于不知道最终value是加还是乘还是什么，只包含3级信息，不打包成2级
+        unsafe public static (int, string) GetCombatSkillAddFieldInfo(CombatSkill skill,int target_value,int fieldId)
+        {
+            var check_value = 0;
+            var result = "";
+            if (skill == null)
+                return (check_value, result);
+            if(skill.GetId().SkillTemplateId<0)
+                return (check_value, result);
+            Config.CombatSkillItem configData = Config.CombatSkill.Instance[skill.GetId().SkillTemplateId];
+            //身法施放时加的命中
+            //CalcAddHitValueOnCast
+            if (fieldId==MyAffectedDataFieldIds.AttackerHitTechnique||fieldId==MyAffectedDataFieldIds.AttackerHitStrength
+                || fieldId==MyAffectedDataFieldIds.AttackerHitSpeed || fieldId==MyAffectedDataFieldIds.AttackerHitMind)
+            {
+                int idx=fieldId-Min(MyAffectedDataFieldIds.AttackerHitTechnique,MyAffectedDataFieldIds.AttackerHitStrength,MyAffectedDataFieldIds.AttackerHitSpeed,MyAffectedDataFieldIds.AttackerHitMind);
+                //完全不知道是什么id
+                short propertyId=(short) (12 + idx);
+                int gridBonus = skill.GetBreakoutGridCombatSkillPropertyBonus(propertyId, 0);
+
+                check_value = configData.AddHitOnCast[idx] + gridBonus;
+                result += ToInfoAdd("基础", configData.AddHitOnCast[idx], 3);
+                result+=ToInfoAdd("突破",gridBonus, 3);
+            }
+            //护体施放时加的闪避
+            //CalcAddAvoidValueOnCast
+            else if (fieldId == MyAffectedDataFieldIds.DefenderAvoidTechnique || fieldId == MyAffectedDataFieldIds.DefenderAvoidStrength
+                || fieldId == MyAffectedDataFieldIds.DefenderAvoidSpeed || fieldId == MyAffectedDataFieldIds.DefenderAvoidMind)
+            {
+                int idx = fieldId - Min(MyAffectedDataFieldIds.DefenderAvoidTechnique, MyAffectedDataFieldIds.DefenderAvoidStrength, MyAffectedDataFieldIds.DefenderAvoidSpeed, MyAffectedDataFieldIds.DefenderAvoidMind);
+                short propertyId = (short)(20 + idx);
+                int gridBonus = skill.GetBreakoutGridCombatSkillPropertyBonus(propertyId, 0);
+
+                check_value = configData.AddAvoidOnCast[idx] + gridBonus;
+                result += ToInfoAdd("基础", configData.AddAvoidOnCast[idx], 3);
+                result += ToInfoAdd("突破", gridBonus, 3);
+            }
+            //护体施放时加的防御
+            //CalcAddPenetrateResist
+            else if (fieldId== MyAffectedDataFieldIds.DefenderPenetrateResistOuter || fieldId==MyAffectedDataFieldIds.DefenderPenetrateResistInner)
+            {
+                int idx = fieldId - Math.Min(MyAffectedDataFieldIds.DefenderPenetrateResistOuter, MyAffectedDataFieldIds.DefenderPenetrateResistInner);
+                short propertyId = (short)(18 + idx);
+                int gridBonus = skill.GetBreakoutGridCombatSkillPropertyBonus(propertyId, 0);
+
+                var base_value = idx == 0 ? configData.AddOuterPenetrateResistOnCast : configData.AddInnerPenetrateResistOnCast;
+                check_value = base_value + gridBonus;
+                result += ToInfoAdd("基础", base_value, 3);
+                result += ToInfoAdd("突破", gridBonus, 3);
+            }
+            //摧破的命中
+            //CalcHitValue
+            else if (fieldId == MyAffectedDataFieldIds.HitTechnique || fieldId == MyAffectedDataFieldIds.HitStrength
+                || fieldId == MyAffectedDataFieldIds.HitSpeed || fieldId == MyAffectedDataFieldIds.HitMind)
+            {
+                int idx = fieldId - Min(MyAffectedDataFieldIds.HitTechnique, MyAffectedDataFieldIds.HitStrength, MyAffectedDataFieldIds.HitSpeed, MyAffectedDataFieldIds.HitMind);
+                bool isMindHit = CombatSkillType.IsMindHitSkill(skill.GetId().SkillTemplateId);
+                check_value = configData.TotalHit;
+                result += ToInfoAdd("基础", check_value, 3);
+                
+                var gridBonus =skill.GetBreakoutGridCombatSkillPropertyBonus(30, 0);
+                check_value+=gridBonus;
+                result += ToInfoAdd("突破", gridBonus , 3);
+                if (idx < 3 && !isMindHit)
+                {
+                    HitOrAvoidInts hitDistribution = skill.GetHitDistribution();
+                    check_value = check_value * hitDistribution.Items[idx] / 100;
+                    result += ToInfoPercent("命中分布", hitDistribution.Items[idx], 3);
+                }
+                else if (idx == 3 && isMindHit)
+                    ;
+                else
+                {
+                    check_value = 0;
+                    result = "";
+                }
+            }
+            //摧破的攻击
+            //这里应该用Penetrate，但是因为没有需要与之区分的情况，偷了个懒
+            //CalcPenetrations
+            else if (fieldId == MyAffectedDataFieldIds.AttackerPenetrateInner || fieldId == MyAffectedDataFieldIds.AttackerPenetrateOuter)
+            {
+                int idx = fieldId - Math.Min(MyAffectedDataFieldIds.AttackerPenetrateInner, MyAffectedDataFieldIds.AttackerPenetrateOuter);
+                int gridBonus = skill.GetBreakoutGridCombatSkillPropertyBonus(29, 0);
+
+                var base_value = configData.Penetrate;
+                check_value = base_value + gridBonus;
+                result += ToInfoAdd("基础", base_value, 3);
+                result += ToInfoAdd("突破", gridBonus, 3);
+            }
+            sbyte practiceLevel = skill.GetPracticeLevel();
+            short power = skill.GetPower();
+            check_value = check_value * practiceLevel / 100 * power / 100;
+            result += ToInfoPercent("修习度", practiceLevel, 3);
+            result += ToInfoPercent("威力", power, 3);
+            //摧破的攻击
+            //内外比例
+            //CalcPenetrations
+            if (fieldId == MyAffectedDataFieldIds.AttackerPenetrateInner || fieldId == MyAffectedDataFieldIds.AttackerPenetrateOuter)
+            {
+                var innerRatio=skill.GetInnerRatio();
+                if (fieldId == MyAffectedDataFieldIds.AttackerPenetrateInner)
+                {
+                    check_value = check_value * innerRatio / 100;
+                    result += ToInfoPercent("内外比例", innerRatio, 3);
+                }
+                else
+                {
+                    check_value =check_value- check_value * innerRatio / 100;
+                    result += ToInfoPercent("内外比例", 100-innerRatio, 3);//实际和*(100-innerRatio)取整不同
+                }
+            }
+
+            if(check_value!=target_value)
+                result += ToInfo("不一致！如果没有影响数值的mod，请报数值bug","", 2);
+            return (check_value, result);
+        }
         public static (int, string) GetSpecialEffectModifyDataInfo(int charId, short combatSkillId, ushort fieldId, int check_value, int customParam0 = -1, int customParam1 = -1, int customParam2 = -1)
         {
             var result = "";
@@ -65,10 +185,37 @@ namespace EffectInfo
             else
                 hitTypes.Add(3);
             GameData.Domains.CombatSkill.CombatSkill attackSkill = DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(attacker.GetId(), skillId));
+            bool isMindHit = GameData.Domains.CombatSkill.CombatSkillType.IsMindHitSkill(skillId);
+
+            //由于计算完成时会RaiseDamageCompareDataCalcFinished触发一些技能的代码逻辑，需要用处理前的数值校验
+            //由于原代码都打开了testDamage开关，而技能不会修改testDamageData，这里直接取TestDamageFormulaData的数值
+            var myCompareData = new DamageCompareData();
+            {
+                TestDamageFormulaData damageData = __instance.GetTestDamageFormulaData();
+                if (isMindHit)
+                    for (int i = 0; i < 3; ++i)
+                        myCompareData.HitValue[i] = damageData.HitAfterFlaw[i];
+                else
+                    myCompareData.HitValue[0] = damageData.HitAfterFlaw[3];
+                if (isMindHit)
+                    for (int i = 0; i < 3; ++i)
+                        myCompareData.AvoidValue[i] = damageData.AvoidAfterC[i];
+                else
+                    myCompareData.AvoidValue[0] = damageData.AvoidAfterC[3];
+                myCompareData.OuterAttackValue = damageData.PenetrateAfterC[0];
+                myCompareData.InnerAttackValue = damageData.PenetrateAfterC[1];
+                myCompareData.OuterDefendValue = damageData.PenetrateResistAfterC[0];
+                myCompareData.InnerDefendValue = damageData.PenetrateResistAfterC[1];
+            }
             HitOrAvoidInts skillHitDistribution = attackSkill.GetHitDistribution();
             //命中
             {
                 HitOrAvoidInts characterHitValue = attacker.GetCharacter().GetHitValues();
+                List<ushort> hitTypeCommonFieldId = new List<ushort> 
+                { MyAffectedDataFieldIds.HitStrength,
+                    MyAffectedDataFieldIds.HitTechnique,
+                    MyAffectedDataFieldIds.HitSpeed,
+                    MyAffectedDataFieldIds.HitMind };
                 var hitTypeFieldId = new List<ushort> {
                 MyAffectedDataFieldIds.AttackerHitStrength,
                 MyAffectedDataFieldIds.AttackerHitTechnique,
@@ -84,10 +231,12 @@ namespace EffectInfo
                 foreach (var hitType in hitTypes)
                     if (hitType == 3 || skillHitDistribution.Items[hitType] > 0)
                     {
-                        //CalcAttackSkillDataCompare完成后计算结果存入attacker.SkillHitValue和____damageCompareData,只有三项,并且顺序和hitType相反                        
+                        //CalcAttackSkillDataCompare完成后计算结果存入attacker.SkillHitValue和____damageCompareData(____damageCompareData又经过其它修改)
+                        //attacker.SkillHitValue和____damageCompareData的命中回避只有三项,非心神顺序和hitType相反,心神固定为0
+                        //这里用myCompareData和attacker.SkillHitValue效果一样
                         var result = GetCombatHitOrAvoidInfo(true, hitType==3? attacker.SkillHitValue[0]: attacker.SkillHitValue[2-hitType],
                             hitType,HitTypeNames[hitType], characterHitValue,
-                            hitTypeFieldId, enemyHitTypeFieldId,
+                            hitTypeFieldId, enemyHitTypeFieldId, hitTypeCommonFieldId,
                             weapon,
                             __instance, attacker, skillId);
                         int idx = hitType % 3;
@@ -97,6 +246,11 @@ namespace EffectInfo
             //回避
             {
                 HitOrAvoidInts characterHitValue = defender.GetCharacter().GetAvoidValues();
+                List<ushort> hitTypeCommonFieldId = new List<ushort>
+                { MyAffectedDataFieldIds.AvoidStrength,
+                    MyAffectedDataFieldIds.AvoidTechnique,
+                    MyAffectedDataFieldIds.AvoidSpeed,
+                    MyAffectedDataFieldIds.AvoidMind };
                 var hitTypeFieldId = new List<ushort> {
                 MyAffectedDataFieldIds.DefenderAvoidStrength,
                 MyAffectedDataFieldIds.DefenderAvoidTechnique,
@@ -114,7 +268,7 @@ namespace EffectInfo
                     {
                         var result = GetCombatHitOrAvoidInfo(false, hitType == 3 ? attacker.SkillAvoidValue[0] : attacker.SkillAvoidValue[2 - hitType],
                             hitType, AvoidTypeNames[hitType],characterHitValue,
-                            hitTypeFieldId, enemyHitTypeFieldId,
+                            hitTypeFieldId, enemyHitTypeFieldId, hitTypeCommonFieldId,
                             null,
                             __instance, defender, skillId);
                         int idx = hitType % 3 + 3;
@@ -122,20 +276,74 @@ namespace EffectInfo
                     }
             }
             {
+                //攻防
                 var bodyPart = attacker.SkillAttackBodyPart;
-                Cached_CombatCompareText[6] = GetPenetrateOrResistInfo(false, 0, ____damageCompareData.OuterAttackValue, __instance, attacker, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Outer);
-                Cached_CombatCompareText[7] = GetPenetrateOrResistInfo(false, 1, ____damageCompareData.InnerAttackValue, __instance, attacker, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Inner);
-                Cached_CombatCompareText[8] = GetPenetrateOrResistInfo(true,0, ____damageCompareData.OuterDefendValue, __instance, defender, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Outer);
-                Cached_CombatCompareText[9] = GetPenetrateOrResistInfo(true,1, ____damageCompareData.InnerDefendValue, __instance, defender, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Inner);
+                Cached_CombatCompareText[6] = GetPenetrateOrResistInfo(false, 0, myCompareData.OuterAttackValue, __instance, attacker, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Outer);
+                Cached_CombatCompareText[7] = GetPenetrateOrResistInfo(false, 1, myCompareData.InnerAttackValue, __instance, attacker, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Inner);
+                Cached_CombatCompareText[8] = GetPenetrateOrResistInfo(true,0, myCompareData.OuterDefendValue, __instance, defender, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Outer);
+                Cached_CombatCompareText[9] = GetPenetrateOrResistInfo(true,1, myCompareData.InnerDefendValue, __instance, defender, weapon, bodyPart, skillId, attackSkill.GetPenetrations().Inner);
             }
-            //攻防
+            //RaiseDamageCompareDataCalcFinished会触发各个功法的对应函数处理
+            //这些函数里有诸如显示tips和改变距离等不能调用两次的部分，由于该Mod旨在显示数值，不想取代原本的计算过程，所以不能调用这些函数
+            //只好比较最终处理后的结果，如果有变化则加上说明
+            {
+                string special_skills_text = ToInfoNote("这部分效果在最终阶段通过代码逻辑实现数值计算，较为复杂无法一一解析",1);
+                Type type = typeof(Events);
+                FieldInfo field_info = type.GetField("_handlersDamageCompareDataCalcFinished", BindingFlags.Static|BindingFlags.NonPublic|BindingFlags.Instance);
+                if(field_info != null)
+                {
+                    var handler = field_info.GetValue(null) as OnDamageCompareDataCalcFinished;
+                    if (handler != null)
+                    {
+                        foreach (var invocation in handler.GetInvocationList())
+                            if (invocation != null && invocation.Target != null)
+                            {
+                                //var func = (OnDamageCompareDataCalcFinished)invocation;
+                                //func(context, attacker, defender, attacker.SkillAttackBodyPart, weapon, skillId, myCompareData);
+                                var class_name = invocation.Target.ToString();
+                                if (class_name.Contains('.'))
+                                    class_name = class_name.Substring(class_name.LastIndexOf('.') + 1);
+                                special_skills_text += ToInfo(class_name, "", 2);
+                            }
+                        if (!isMindHit)
+                        {
+                            for (int hitType = 0; hitType < 3; ++hitType)
+                            {
+                                var idx = 2 - hitType;
+                                if (myCompareData.HitValue[idx] != ____damageCompareData.HitValue[idx])
+                                    Cached_CombatCompareText[hitType] += ToInfo("复杂效果", $"=>{myCompareData.HitValue[idx]}", 1) + special_skills_text;
+                                if (myCompareData.AvoidValue[idx] != ____damageCompareData.AvoidValue[idx])
+                                    Cached_CombatCompareText[2 + hitType] += ToInfo("复杂效果", $"=>{myCompareData.AvoidValue[idx]}", 1) + special_skills_text;
+                            }
+                        }
+                        else
+                        {
+                            if (myCompareData.HitValue[0] != ____damageCompareData.HitValue[0])
+                                Cached_CombatCompareText[0] += ToInfo("复杂效果", $"=>{myCompareData.HitValue[0]}", 1) + special_skills_text;
+                            if (myCompareData.AvoidValue[0] != ____damageCompareData.AvoidValue[0])
+                                Cached_CombatCompareText[3] += ToInfo("复杂效果", $"=>{myCompareData.AvoidValue[0]}", 1) + special_skills_text;
+                        }
+
+                        if (myCompareData.OuterAttackValue != ____damageCompareData.OuterAttackValue)
+                            Cached_CombatCompareText[6] += ToInfo("复杂效果", $"=>{myCompareData.OuterAttackValue}", 1) + special_skills_text;
+                        if (myCompareData.InnerAttackValue != ____damageCompareData.InnerAttackValue)
+                            Cached_CombatCompareText[7] += ToInfo("复杂效果", $"=>{myCompareData.InnerAttackValue}", 1) + special_skills_text;
+                        if (myCompareData.OuterDefendValue != ____damageCompareData.OuterDefendValue)
+                            Cached_CombatCompareText[8] += ToInfo("复杂效果", $"=>{myCompareData.OuterDefendValue}", 1) + special_skills_text;
+                        if (myCompareData.InnerDefendValue != ____damageCompareData.InnerDefendValue)
+                            Cached_CombatCompareText[9] += ToInfo("复杂效果", $"=>{myCompareData.InnerDefendValue}", 1) + special_skills_text;
+                    }
+
+                }
+            }
+
         }
         //attacker.GetHitValue(weapon,hitType,attacker.SkillAttackBodyPart,hitValue.Items[hitType], skillId, true)
         //defender.GetAvoidValue(hitType, attacker.SkillAttackBodyPart, skillId, false, true);
         unsafe public static string GetCombatHitOrAvoidInfo(bool isHit,int target_value,
             int hitType,string hitTypeName,
             HitOrAvoidInts characterHitValue,
-            List<ushort> hitTypeFieldId,List<ushort> enemyHitTypeFieldId,
+            List<ushort> hitTypeFieldId,List<ushort> enemyHitTypeFieldId, List<ushort> hitTypeCommonFieldId,
             Weapon weapon,
             CombatDomain __instance, CombatCharacter character, short attackSkillId)
         {
@@ -168,15 +376,17 @@ namespace EffectInfo
             {
                 var tmp = "";
                 int total = 0;
-                var skill_name =GetCombatSkillName(character.GetAffectingMoveSkillId());
+                var skill_name = GetCombatSkillName(character.GetAffectingMoveSkillId());
                 CombatSkill move_skill = DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(id, character.GetAffectingMoveSkillId()));
                 HitOrAvoidInts addHitValues = move_skill.GetAddHitValueOnCast();
                 total = GlobalConfig.Instance.AgileSkillBaseAddHit * move_skill.GetPracticeLevel() / 100 * move_skill.GetPower() / 100 * addHitValues.Items[hitType] / 100;
                 tmp += ToInfoAdd("基础", GlobalConfig.Instance.AgileSkillBaseAddHit, -2);
-                tmp += ToInfoPercent("发挥度", move_skill.GetPracticeLevel(), -2);
+                tmp += ToInfoPercent("修习度", move_skill.GetPracticeLevel(), -2);
                 tmp += ToInfoPercent("威力", move_skill.GetPower(), -2);
                 tmp += ToInfoPercent("功法", addHitValues.Items[hitType], -2);
-                result += ToInfoAdd($"身法{skill_name}", total, -1)
+                if(addHitValues.Items[hitType]!=0)
+                    tmp += GetCombatSkillAddFieldInfo(move_skill, addHitValues.Items[hitType],hitTypeFieldId[hitType]).Item2;
+                result += ToInfoAdd($"身法-{skill_name}", total, -1)
                     +tmp;
                 check_value += total;
             }
@@ -190,10 +400,12 @@ namespace EffectInfo
                 //注意此处乘法顺序和命中不同，影响取整
                 total = GlobalConfig.Instance.DefendSkillBaseAddAvoid * addAvoidValues.Items[hitType] / 100 * defend_skill.GetPracticeLevel() / 100 * defend_skill.GetPower() / 100 ;
                 tmp += ToInfoAdd("基础", GlobalConfig.Instance.DefendSkillBaseAddAvoid, -2);
-                tmp += ToInfoPercent("发挥度", defend_skill.GetPracticeLevel(), -2);
+                tmp += ToInfoPercent("修习度", defend_skill.GetPracticeLevel(), -2);
                 tmp += ToInfoPercent("威力", defend_skill.GetPower(), -2);
                 tmp += ToInfoPercent("功法", addAvoidValues.Items[hitType], -2);
-                result += ToInfoAdd($"护体{skill_name}", total, -1)
+                if (addAvoidValues.Items[hitType] != 0)
+                    tmp += GetCombatSkillAddFieldInfo(defend_skill, addAvoidValues.Items[hitType], hitTypeFieldId[hitType]).Item2;
+                result += ToInfoAdd($"护体-{skill_name}", total, -1)
                     +tmp;
                 check_value += total;
             }
@@ -254,13 +466,19 @@ namespace EffectInfo
             {
                 int percent = 0;
                 var tmp = "";
-                //装备
-                if(isHit)//武器
+
+                if(isHit)//摧破+武器
                 {
                     CombatSkill attackSkill = DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(character.GetId(), attackSkillId));
                     HitOrAvoidInts skillHitValue = attackSkill.GetHitValue();
-                    percent += 100 + skillHitValue.Items[hitType];//由于功法的提示里写的就是100+加成，为了便于理解把基础值和功法加成合到一起
-                    tmp += ToInfoAdd($"功法{hitTypeName}", percent, -2);
+                    percent += 100 + skillHitValue.Items[hitType];
+                    tmp += ToInfoAdd($"基础", 100, 2);
+                    tmp += ToInfoAdd($"功法{hitTypeName}", skillHitValue.Items[hitType], 2);
+                    //注意FieldId的区别，身法是获得OnCast时的AddHitValue，摧破是获得HitValue
+                    if(skillHitValue.Items[hitType]!=0)
+                        tmp += GetCombatSkillAddFieldInfo(DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(id, attackSkillId)), skillHitValue.Items[hitType], hitTypeCommonFieldId[hitType]).Item2;
+
+                    //武器
                     if (attackSkillId < 0 || DomainManager.CombatSkill.GetSkillType(id, attackSkillId) != 5)
                     {
                         HitOrAvoidShorts weaponFactors = weapon.GetHitFactors();
@@ -442,10 +660,10 @@ namespace EffectInfo
             }
             else
             {
-                peneFieldId.Add(MyAffectedDataFieldIds.DefenderPenetrateOuter);
-                peneFieldId.Add(MyAffectedDataFieldIds.DefenderPenetrateInner);
-                enemyPeneFieldId.Add(MyAffectedDataFieldIds.AttackerPenetrateOuter);
-                enemyPeneFieldId.Add(MyAffectedDataFieldIds.AttackerPenetrateInner);
+                peneFieldId.Add(MyAffectedDataFieldIds.AttackerPenetrateOuter);
+                peneFieldId.Add(MyAffectedDataFieldIds.AttackerPenetrateInner);
+                enemyPeneFieldId.Add(MyAffectedDataFieldIds.DefenderPenetrateOuter);
+                enemyPeneFieldId.Add(MyAffectedDataFieldIds.DefenderPenetrateInner);
             }
 
             string propertyName = "";
@@ -568,6 +786,7 @@ namespace EffectInfo
                 {
                     GameData.Domains.CombatSkill.CombatSkill defendSkill = DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(_id, character.GetAffectingDefendSkillId()));
                     OuterAndInnerInts addPenetrateResists = defendSkill.GetAddPenetrateResist();
+                    var skill_name = GetCombatSkillName(character.GetAffectingDefendSkillId());
                     var factor = isOutter ? addPenetrateResists.Outer : addPenetrateResists.Inner;
                     var value = GlobalConfig.Instance.DefendSkillBaseAddPenetrateResist
                                     * defendSkill.GetPracticeLevel() / 100 
@@ -575,11 +794,12 @@ namespace EffectInfo
                                     * factor / 100;
                     var tmp = "";
                     tmp += ToInfoAdd("基础", GlobalConfig.Instance.DefendSkillBaseAddPenetrateResist, 2);
-                    tmp += ToInfoPercent("发挥", defendSkill.GetPracticeLevel(), 2);
+                    tmp += ToInfoPercent("修习度", defendSkill.GetPracticeLevel(), 2);
                     tmp += ToInfoPercent("威力", defendSkill.GetPower(), 2);
                     tmp += ToInfoPercent("功法", factor, 2);
-
-                    result += ToInfoAdd("护体功法",value,1);
+                    if(factor!=0)
+                        tmp += GetCombatSkillAddFieldInfo(defendSkill, factor, peneFieldId[idx]).Item2;
+                    result += ToInfoAdd($"护体-{skill_name}", value,1)+tmp;
                     check_value += value;
                 }
             {
@@ -590,14 +810,17 @@ namespace EffectInfo
             {//效果加成
                 int total_value = 100;
                 var tmp = "";
-                if(!isResist)
+                tmp += ToInfoAdd("基础", total_value, 2);
+                if (!isResist)
                 {
                     total_value += skillAddPercent;
-                    tmp += ToInfoAdd("摧破功法",total_value,2);
+                    tmp += ToInfoAdd("摧破功法", skillAddPercent, 2);
+                    //此处传入的fieldId是带Attacker的，因为没有常态的破体加成需要与其区分
+                    if(skillAddPercent!=0)
+                        tmp += GetCombatSkillAddFieldInfo(DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(_id, attackSkillId)), skillAddPercent, peneFieldId[idx]).Item2;
                 }
                 else
                 {
-                    tmp += ToInfoAdd("基础", total_value, 2);
                     //毒
                     if (isResist)
                     {
