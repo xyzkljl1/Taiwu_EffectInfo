@@ -29,7 +29,7 @@ namespace EffectInfo
         public static readonly string PATH_GetShopOutput = $"{PATH_ParentDir}Cache_BuildingShop.txt";
         //重载BuildingDomain的CallMethod响应供前端使用
         [HarmonyPrefix, HarmonyPatch(typeof(BuildingDomain), "CallMethod")]
-        public static bool BuildingDomainCallMethodPatch(BuildingDomain __instance,int __result,
+        public static bool BuildingDomainCallMethodPatch(BuildingDomain __instance,ref int __result,
             Operation operation, RawDataPool argDataPool, RawDataPool returnDataPool, DataContext context)
         {
             if(!On)

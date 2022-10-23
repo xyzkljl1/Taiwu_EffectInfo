@@ -23,7 +23,7 @@ namespace EffectInfo
         public static readonly string PATH_GetReadingEfficiency = $"{PATH_ParentDir}Cache_ReadingEfficiency.txt";
         //重载BuildingDomain的CallMethod响应供前端使用
         [HarmonyPrefix, HarmonyPatch(typeof(TaiwuDomain), "CallMethod")]
-        public static bool BuildingDomainCallMethodPatch(TaiwuDomain __instance, int __result,
+        public static bool BuildingDomainCallMethodPatch(TaiwuDomain __instance,ref int __result,
             Operation operation, RawDataPool argDataPool, RawDataPool returnDataPool, DataContext context)
         {
             if (!On)

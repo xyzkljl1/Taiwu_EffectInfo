@@ -13,7 +13,7 @@ namespace EffectInfo
 { 
     public partial class EffectInfoFrontend
     {
-        public static readonly ushort MY_MAGIC_NUMBER_GetCombatCompareText = 7677;
+        public static readonly ushort MY_MAGIC_NUMBER_GetCombatCompareText = 7679;
 
         public static void SetCover(GameObject gameObject,bool alpha=false)
         {
@@ -40,7 +40,7 @@ namespace EffectInfo
                 mouseTipDisplayer.Type = TipType.Simple;
                 mouseTipDisplayer.PresetParam = new string[2]
                 {
-                        "EffectInfo",
+                        "洞察",
                         "空"
                 };
             }
@@ -126,11 +126,11 @@ namespace EffectInfo
                 List<string> combatCompareText = new List<string>();
                 //顺序:3命中3闪避2攻击(外内)2防御
                 Serializer.Deserialize(dataPool, offset, ref combatCompareText);
-                for(int i = 0;i<mouseTips.Count&&i<combatCompareText.Count;i++)
-                    if(mouseTips[i] != null)
+                for (int i = 0;i<mouseTips.Count&&i<combatCompareText.Count;i++)
+                    if(mouseTips[i] != null&& mouseTips[i].PresetParam!=null&& mouseTips[i].PresetParam.Count()>1)
                     {
-                        mouseTips[i].PresetParam[1]=combatCompareText[i];
-                        mouseTips[i].NeedRefresh=true;
+                        mouseTips[i].PresetParam[1] = combatCompareText[i];
+                        mouseTips[i].NeedRefresh = true;
                     }
                 UnityEngine.Debug.Log("Effect Info:Refresh CombatCompareData.");
             });

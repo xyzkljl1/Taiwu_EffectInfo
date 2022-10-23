@@ -18,7 +18,7 @@ namespace EffectInfo
 {
     partial class EffectInfoBackend
     {
-        public static readonly ushort MY_MAGIC_NUMBER_GetCombatCompareText = 7677;
+        public static readonly ushort MY_MAGIC_NUMBER_GetCombatCompareText = 7679;
         public static readonly List<string> HitTypeNames = new List<string> { "力道", "精妙", "迅疾", "动心" };
         public static readonly List<string> AvoidTypeNames = new List<string> { "卸力", "拆招", "闪避", "守心" };
         //战斗放技能时双方攻防命中对比
@@ -339,7 +339,6 @@ namespace EffectInfo
 
                 }
             }
-
         }
 
 
@@ -937,7 +936,7 @@ namespace EffectInfo
             return result;
         }
         [HarmonyPrefix, HarmonyPatch(typeof(CombatDomain), "CallMethod")]
-        public static bool CombatDomainCallMethodPatch(CombatDomain __instance, int __result,
+        public static bool CombatDomainCallMethodPatch(CombatDomain __instance,ref int __result,
                     Operation operation, RawDataPool argDataPool, RawDataPool returnDataPool, DataContext context)
         {
             if (!On)
