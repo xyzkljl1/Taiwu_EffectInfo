@@ -25,9 +25,8 @@ namespace EffectInfo
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetResourceOutput = 6723;
         public static readonly ushort MY_MAGIC_NUMBER_GetShopOutput = 6728;
-        public static readonly string PATH_GetResourceOutput = $"{PATH_ParentDir}Cache_BuildingResource.txt";
-        public static readonly string PATH_GetShopOutput = $"{PATH_ParentDir}Cache_BuildingShop.txt";
         //重载BuildingDomain的CallMethod响应供前端使用
+        //如果前端有回调，需要返回0而非-1
         [HarmonyPrefix, HarmonyPatch(typeof(BuildingDomain), "CallMethod")]
         public static bool BuildingDomainCallMethodPatch(BuildingDomain __instance,ref int __result,
             Operation operation, RawDataPool argDataPool, RawDataPool returnDataPool, DataContext context)
@@ -41,13 +40,13 @@ namespace EffectInfo
                 if (argsCount != 1)
                 {
                     AdaptableLog.Info("Effect Info:Unknown Fatal Error");
-                    __result = -1;//表示无返回值
+                    __result = 0;
                     return false;//由于是自定义key，不继续执行原函数
                 }
                 BuildingBlockKey para1 = default(BuildingBlockKey);
                 argsOffset += GameData.Serializer.Serializer.Deserialize(argDataPool, argsOffset, ref para1);
-                GetBuildingResourceOutputInfo(__instance,para1);
-                __result = -1;//表示无返回值
+                var text=GetBuildingResourceOutputInfo(__instance,para1);
+                __result = GameData.Serializer.Serializer.Serialize(text, returnDataPool);
                 return false;
             }
             else if (operation.MethodId == MY_MAGIC_NUMBER_GetShopOutput)
@@ -57,20 +56,20 @@ namespace EffectInfo
                 if (argsCount != 1)
                 {
                     AdaptableLog.Info("Effect Info:Unknown Fatal Error");
-                    __result = -1;//表示无返回值
+                    __result = 0;//表示无返回值、可回调
                     return false;//由于是自定义key，不继续执行原函数
                 }
                 BuildingBlockKey para1 = default(BuildingBlockKey);
                 argsOffset += GameData.Serializer.Serializer.Deserialize(argDataPool, argsOffset, ref para1);
-                GetBuildingShopOutputInfo(__instance, para1);
-                __result = -1;//表示无返回值
+                var text=GetBuildingShopOutputInfo(__instance, para1);
+                __result = GameData.Serializer.Serializer.Serialize(text, returnDataPool);
                 return false;
             }
             return true;
         }
         //BuildingDomain.CalcResourceOutput
         //同一建筑产出不同种类资源(食物、木材等)用的公式是一样的，GetCollectBuildingResourceType返回的是Config中的常量而非根据界面上的选择变化？
-        public static void GetBuildingResourceOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
+        public static string GetBuildingResourceOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
         {
             var result = "";
             int check_value = 0;
@@ -149,18 +148,7 @@ namespace EffectInfo
                     result += ToInfoAdd("总合校验值", check_value, -1);
                 }
             }
-            var path = $"{Path.GetTempPath()}{PATH_GetResourceOutput}";
-            for (int i = 0; i < 5; ++i)
-                try
-                {
-                    File.WriteAllText(path, result);
-                    break;
-                }
-                catch (IOException)
-                {
-                    AdaptableLog.Info("EffectInfo:Write File Fail,Retrying...");
-                    System.Threading.Tasks.Task.Delay(500);
-                }
+            return result;
         }
         public unsafe static string GetCultureOrSafteyInfo(out int total,Config.BuildingBlockItem config)
         {
@@ -246,7 +234,7 @@ namespace EffectInfo
         }
 
         //经营产出,实际是个整数，达到上限时产出一个物品
-        public unsafe static void GetBuildingShopOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
+        public unsafe static string GetBuildingShopOutputInfo(BuildingDomain __instance, BuildingBlockKey blockKey)
         {
             var result = "";
             int check_value = 0;
@@ -609,18 +597,7 @@ namespace EffectInfo
                         }
                 }
             }
-            var path = $"{Path.GetTempPath()}{PATH_GetShopOutput}";
-            for (int i = 0; i < 5; ++i)
-                try
-                {
-                    File.WriteAllText(path, result);
-                    break;
-                }
-                catch (IOException)
-                {
-                    AdaptableLog.Info("EffectInfo:Write File Fail,Retrying...");
-                    System.Threading.Tasks.Task.Delay(500);
-                }
+            return result;
         }
     }
 }

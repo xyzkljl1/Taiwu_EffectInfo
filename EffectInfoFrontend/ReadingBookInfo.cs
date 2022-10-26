@@ -1,4 +1,5 @@
-﻿using GameData.Utilities;
+﻿using GameData.Serializer;
+using GameData.Utilities;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,6 @@ namespace EffectInfo
     public partial class EffectInfoFrontend
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetReadingEfficiency = 6724;
-        public static readonly string PATH_GetReadingEfficiency = $"{PATH_ParentDir}Cache_ReadingEfficiency.txt";
 
         public static void UpdateReadingMouseTips(UI_Reading __instance)
         {
@@ -47,17 +47,8 @@ namespace EffectInfo
             }
             __instance.AsynchMethodCall(MyDomainIds.Taiwu, MY_MAGIC_NUMBER_GetReadingEfficiency, delegate (int offset, RawDataPool dataPool)
             {
-                var path = $"{Path.GetTempPath()}{PATH_GetReadingEfficiency}";
-                //UnityEngine.Debug.Log(path);
                 var text = "";
-                try
-                {//和获取角色属性不同，回调时后端应该已经写完，如果读取失败是其它原因造成的，没必要重试
-                    if (File.Exists(path))
-                        text = File.ReadAllText(path);
-                }
-                catch (IOException)
-                {
-                }
+                Serializer.Deserialize(dataPool, offset, ref text);
                 mouseTipDisplayer.PresetParam[1] = text;
                 mouseTipDisplayer.NeedRefresh = true;
                 UnityEngine.Debug.Log("Effect Info:Refresh ReadingEfficiency output.");

@@ -20,7 +20,6 @@ namespace EffectInfo
     public partial class EffectInfoBackend
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetReadingEfficiency = 6724;
-        public static readonly string PATH_GetReadingEfficiency = $"{PATH_ParentDir}Cache_ReadingEfficiency.txt";
         //重载BuildingDomain的CallMethod响应供前端使用
         [HarmonyPrefix, HarmonyPatch(typeof(TaiwuDomain), "CallMethod")]
         public static bool BuildingDomainCallMethodPatch(TaiwuDomain __instance,ref int __result,
@@ -30,14 +29,14 @@ namespace EffectInfo
                 return true;
             if (operation.MethodId == MY_MAGIC_NUMBER_GetReadingEfficiency)
             {
-                GetReadingEfficiencyInfo(__instance, context);
-                __result = -1;//表示无返回值
+                var text = GetReadingEfficiencyInfo(__instance, context);
+                __result = GameData.Serializer.Serializer.Serialize(text, returnDataPool);
                 return false;
             }
             return true;
         }
         //TaiwuDomain.GetCurrReadingEfficiency
-        public static void GetReadingEfficiencyInfo(TaiwuDomain __instance, DataContext context)
+        public static string GetReadingEfficiencyInfo(TaiwuDomain __instance, DataContext context)
         {
             var result = "";
             var _curReadingBook = __instance.GetCurReadingBook();
@@ -124,18 +123,7 @@ namespace EffectInfo
                 else
                     result += ToInfo("已读完", "-", -1);
             }
-            var path = $"{Path.GetTempPath()}{PATH_GetReadingEfficiency}";
-            for (int i = 0; i < 5; ++i)
-                try
-                {
-                    File.WriteAllText(path, result);
-                    break;
-                }
-                catch (IOException)
-                {
-                    AdaptableLog.Info("EffectInfo:Write File Fail,Retrying...");
-                    System.Threading.Tasks.Task.Delay(500);
-                }
+            return result;
         }
         //check_value不返回
         //Combatskillbook:

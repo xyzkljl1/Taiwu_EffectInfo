@@ -18,6 +18,7 @@ using UnityEngine;
 using System.Collections;
 using UnityEngine.EventSystems;
 using GameData.Utilities;
+using GameData.Serializer;
 
 namespace EffectInfo
 {
@@ -25,8 +26,6 @@ namespace EffectInfo
     {
         public static readonly ushort MY_MAGIC_NUMBER_GetResourceOutput = 6723;
         public static readonly ushort MY_MAGIC_NUMBER_GetShopOutput = 6728;
-        public static readonly string PATH_GetResourceOutput = $"{PATH_ParentDir}Cache_BuildingResource.txt";
-        public static readonly string PATH_GetShopOutput = $"{PATH_ParentDir}Cache_BuildingShop.txt";
 
         //创建mouseTip并更新信息
         //在MouseTipManager中持续监视最上方的GameObject,如果这个GameObject下挂了MouseTipDisplayer类型的Component就会显示mouseTip
@@ -57,21 +56,10 @@ namespace EffectInfo
                         ""
                 };
             }
-            __instance.AsynchMethodCall(9, MY_MAGIC_NUMBER_GetResourceOutput, __instance.GetCurrentBuildingBlockKey(), delegate (int offset, RawDataPool dataPool)
+            __instance.AsynchMethodCall(MyDomainIds.Building, MY_MAGIC_NUMBER_GetResourceOutput, __instance.GetCurrentBuildingBlockKey(), delegate (int offset, RawDataPool dataPool)
             {
-                //跟CharacterAttribute不一样，这个是响应回调，不需要检查更新时间
-                //前端在根目录，后端在backend
-                var path = $"{Path.GetTempPath()}{PATH_GetResourceOutput}";
-                //UnityEngine.Debug.Log(path);
                 var text = "";
-                try
-                {
-                    if (File.Exists(path))
-                        text = File.ReadAllText(path);
-                }
-                catch (IOException)
-                {
-                }
+                Serializer.Deserialize(dataPool, offset, ref text);
                 mouseTipDisplayer.PresetParam[1] = text;
                 mouseTipDisplayer.NeedRefresh = true;
                 UnityEngine.Debug.Log("Effect Info:Refresh Building resource output.");
@@ -107,21 +95,10 @@ namespace EffectInfo
                         "每月经营进度",
                         ""
             };
-            __instance.AsynchMethodCall(9, MY_MAGIC_NUMBER_GetShopOutput, __instance.GetCurrentBuildingBlockKey(), delegate (int offset, RawDataPool dataPool)
+            __instance.AsynchMethodCall(MyDomainIds.Building, MY_MAGIC_NUMBER_GetShopOutput, __instance.GetCurrentBuildingBlockKey(), delegate (int offset, RawDataPool dataPool)
             {
-                //跟CharacterAttribute不一样，这个是响应回调，不需要检查更新时间
-                //前端在根目录，后端在backend
-                var path = $"{Path.GetTempPath()}{PATH_GetShopOutput}";
-                //UnityEngine.Debug.Log(path);
                 var text = "";
-                try
-                {
-                    if (File.Exists(path))
-                        text = File.ReadAllText(path);
-                }
-                catch (IOException)
-                {
-                }
+                Serializer.Deserialize(dataPool, offset, ref text);
                 mouseTipDisplayer.PresetParam[1] = text;
                 mouseTipDisplayer.NeedRefresh = true;
                 UnityEngine.Debug.Log("Effect Info:Refresh Building shop output.");
