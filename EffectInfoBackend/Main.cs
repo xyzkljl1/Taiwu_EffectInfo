@@ -24,6 +24,7 @@ namespace EffectInfo
         public static readonly string PATH_CharacterAttribute = $"{PATH_ParentDir}Cache_GetCharacterAttribute.txt";
         public static bool On;
         public static bool ShowUseless;
+        public static bool Colorful=false;
         public static int InfoLevel = 3;
         public static List<string> NeiliTrans = new List<string> { "催破","轻灵","护体","奇窍"};
         //已经实现获取信息方法的Field
@@ -79,6 +80,7 @@ namespace EffectInfo
             DomainManager.Mod.GetSetting(ModIdStr, "On", ref On);
             DomainManager.Mod.GetSetting(ModIdStr, "ShowUseless", ref ShowUseless);
             DomainManager.Mod.GetSetting(ModIdStr, "InfoLevel", ref InfoLevel);
+            DomainManager.Mod.GetSetting(ModIdStr, "Colorful", ref Colorful);
             AdaptableLog.Info(String.Format("EffectInfoBackend:Load Setting, EffectInfoBackend {0}", On ? "开启" : "关闭"));
         }
 
@@ -96,7 +98,6 @@ namespace EffectInfo
                 由于1级信息自己判断是否需要显示，无需传入dirty_tag
                 出入参check_value
 		 */
-        //不知道SpecialEffectBase的名字如何获得
         //不好写pack，算了
         public static ((int,int),(string, string)) GetTotalPercentModifyValueInfo(ref bool dirty_tag, int charId, short combatSkillId, ushort fieldId, int customParam0 = -1, int customParam1 = -1, int customParam2 = -1)
         {

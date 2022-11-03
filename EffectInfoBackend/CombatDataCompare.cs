@@ -6,6 +6,8 @@ using GameData.Domains.Combat;
 using GameData.Domains.CombatSkill;
 using GameData.Domains.Item;
 using GameData.Domains.SpecialEffect;
+using GameData.Domains.SpecialEffect.CombatSkill;
+using GameData.Domains.TutorialChapter;
 using GameData.GameDataBridge;
 using GameData.Utilities;
 using HarmonyLib;
@@ -42,6 +44,7 @@ namespace EffectInfo
             if(skill.GetId().SkillTemplateId<0)
                 return (check_value, result);
             Config.CombatSkillItem configData = Config.CombatSkill.Instance[skill.GetId().SkillTemplateId];
+            var skill_name = configData.Name;
             //身法施放时加的命中
             //CalcAddHitValueOnCast
             if (fieldId==MyAffectedDataFieldIds.AttackerHitTechnique||fieldId==MyAffectedDataFieldIds.AttackerHitStrength
@@ -53,7 +56,7 @@ namespace EffectInfo
                 int gridBonus = skill.GetBreakoutGridCombatSkillPropertyBonus(propertyId, 0);
 
                 check_value = configData.AddHitOnCast[idx] + gridBonus;
-                result += ToInfoAdd("基础", configData.AddHitOnCast[idx], 3);
+                result += ToInfoAdd($"基础{skill_name}", configData.AddHitOnCast[idx], 3);
                 result+=ToInfoAdd("突破",gridBonus, 3);
             }
             //护体施放时加的闪避
@@ -66,7 +69,7 @@ namespace EffectInfo
                 int gridBonus = skill.GetBreakoutGridCombatSkillPropertyBonus(propertyId, 0);
 
                 check_value = configData.AddAvoidOnCast[idx] + gridBonus;
-                result += ToInfoAdd("基础", configData.AddAvoidOnCast[idx], 3);
+                result += ToInfoAdd($"基础{skill_name}", configData.AddAvoidOnCast[idx], 3);
                 result += ToInfoAdd("突破", gridBonus, 3);
             }
             //护体施放时加的防御
@@ -79,7 +82,7 @@ namespace EffectInfo
 
                 var base_value = idx == 0 ? configData.AddOuterPenetrateResistOnCast : configData.AddInnerPenetrateResistOnCast;
                 check_value = base_value + gridBonus;
-                result += ToInfoAdd("基础", base_value, 3);
+                result += ToInfoAdd($"基础{skill_name}", base_value, 3);
                 result += ToInfoAdd("突破", gridBonus, 3);
             }
             //摧破的命中
@@ -90,7 +93,7 @@ namespace EffectInfo
                 int idx = fieldId - Min(MyAffectedDataFieldIds.HitTechnique, MyAffectedDataFieldIds.HitStrength, MyAffectedDataFieldIds.HitSpeed, MyAffectedDataFieldIds.HitMind);
                 bool isMindHit = CombatSkillType.IsMindHitSkill(skill.GetId().SkillTemplateId);
                 check_value = configData.TotalHit;
-                result += ToInfoAdd("基础", check_value, 3);
+                result += ToInfoAdd($"基础{skill_name}", check_value, 3);
                 
                 var gridBonus =skill.GetBreakoutGridCombatSkillPropertyBonus(30, 0);
                 check_value+=gridBonus;
@@ -119,7 +122,7 @@ namespace EffectInfo
 
                 var base_value = configData.Penetrate;
                 check_value = base_value + gridBonus;
-                result += ToInfoAdd("基础", base_value, 3);
+                result += ToInfoAdd($"基础{skill_name}", base_value, 3);
                 result += ToInfoAdd("突破", gridBonus, 3);
             }
             sbyte practiceLevel = skill.GetPracticeLevel();
@@ -303,10 +306,17 @@ namespace EffectInfo
                             {
                                 //var func = (OnDamageCompareDataCalcFinished)invocation;
                                 //func(context, attacker, defender, attacker.SkillAttackBodyPart, weapon, skillId, myCompareData);
-                                var class_name = invocation.Target.ToString();
-                                if (class_name.Contains('.'))
-                                    class_name = class_name.Substring(class_name.LastIndexOf('.') + 1);
-                                special_skills_text += ToInfo(class_name, "", 2);
+                                var combatSkillEffect = invocation.Target as CombatSkillEffectBase;
+                                var skill_name = "";
+                                if (combatSkillEffect!=null)
+                                    skill_name =GetSpecialEffectName(combatSkillEffect);
+                                else
+                                {
+                                    skill_name = invocation.Target.ToString();
+                                    if (skill_name.Contains('.'))
+                                        skill_name = skill_name.Substring(skill_name.LastIndexOf('.') + 1);
+                                }
+                                special_skills_text += ToInfo(skill_name, "", 2);
                             }
                         if (!isMindHit)
                         {
@@ -383,15 +393,12 @@ namespace EffectInfo
                 var skill_name = GetCombatSkillName(character.GetAffectingMoveSkillId());
                 CombatSkill move_skill = DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(id, character.GetAffectingMoveSkillId()));
                 HitOrAvoidInts addHitValues = move_skill.GetAddHitValueOnCast();
-                total = GlobalConfig.Instance.AgileSkillBaseAddHit * move_skill.GetPracticeLevel() / 100 * move_skill.GetPower() / 100 * addHitValues.Items[hitType] / 100;
+                total = GlobalConfig.Instance.AgileSkillBaseAddHit * addHitValues.Items[hitType] / 100;
                 tmp += ToInfoAdd("基础", GlobalConfig.Instance.AgileSkillBaseAddHit, -2);
-                if(move_skill.GetPracticeLevel()!=100)
-                    tmp += ToInfoPercent("修习度", move_skill.GetPracticeLevel(), -2);
-                tmp += ToInfoPercent("威力", move_skill.GetPower(), -2);
-                tmp += ToInfoPercent("功法", addHitValues.Items[hitType], -2);
+                tmp += ToInfoPercent(skill_name, addHitValues.Items[hitType], -2);
                 if(addHitValues.Items[hitType]!=0)
                     tmp += GetCombatSkillAddFieldInfo(move_skill, addHitValues.Items[hitType],hitTypeFieldId[hitType]).Item2;
-                result += ToInfoAdd($"身法-{skill_name}", total, -1)
+                result += ToInfoAdd($"身法", total, -1)
                     +tmp;
                 check_value += total;
             }
@@ -403,15 +410,12 @@ namespace EffectInfo
                 CombatSkill defend_skill = DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(id, character.GetAffectingDefendSkillId()));
                 HitOrAvoidInts addAvoidValues = defend_skill.GetAddAvoidValueOnCast();
                 //注意此处乘法顺序和命中不同，影响取整
-                total = GlobalConfig.Instance.DefendSkillBaseAddAvoid * addAvoidValues.Items[hitType] / 100 * defend_skill.GetPracticeLevel() / 100 * defend_skill.GetPower() / 100 ;
+                total = GlobalConfig.Instance.DefendSkillBaseAddAvoid * addAvoidValues.Items[hitType];
                 tmp += ToInfoAdd("基础", GlobalConfig.Instance.DefendSkillBaseAddAvoid, -2);
-                if (defend_skill.GetPracticeLevel() != 100)
-                    tmp += ToInfoPercent("修习度", defend_skill.GetPracticeLevel(), -2);
-                tmp += ToInfoPercent("威力", defend_skill.GetPower(), -2);
-                tmp += ToInfoPercent("功法", addAvoidValues.Items[hitType], -2);
+                tmp += ToInfoPercent(skill_name, addAvoidValues.Items[hitType], -2);
                 if (addAvoidValues.Items[hitType] != 0)
                     tmp += GetCombatSkillAddFieldInfo(defend_skill, addAvoidValues.Items[hitType], hitTypeFieldId[hitType]).Item2;
-                result += ToInfoAdd($"护体-{skill_name}", total, -1)
+                result += ToInfoAdd($"护体", total, -1)
                     +tmp;
                 check_value += total;
             }
@@ -479,7 +483,7 @@ namespace EffectInfo
                     HitOrAvoidInts skillHitValue = attackSkill.GetHitValue();
                     percent += 100 + skillHitValue.Items[hitType];
                     tmp += ToInfoAdd($"基础", 100, 2);
-                    tmp += ToInfoAdd($"功法{hitTypeName}", skillHitValue.Items[hitType], 2);
+                    tmp += ToInfoAdd($"摧破{hitTypeName}", skillHitValue.Items[hitType], 2);
                     //注意FieldId的区别，身法是获得OnCast时的AddHitValue，摧破是获得HitValue
                     if(skillHitValue.Items[hitType]!=0)
                         tmp += GetCombatSkillAddFieldInfo(DomainManager.CombatSkill.GetElement_CombatSkills(new CombatSkillKey(id, attackSkillId)), skillHitValue.Items[hitType], hitTypeCommonFieldId[hitType]).Item2;
@@ -638,6 +642,7 @@ namespace EffectInfo
         //attacker.GetPenetrate(false, weapon, bodyPart, skillId, skill.GetPenetrations().Outer, true);
         //defender.GetPenetrateResist(false, weapon, bodyPart, skillId, false, true);
         //idx:外0 内1
+        //因为谜之红字，改成patch一个偏门的Domain
         unsafe public static string GetPenetrateOrResistInfo(bool isResist,int idx,int target_value,
                                                     CombatDomain _combatDomain,
                                                     CombatCharacter character,
@@ -795,18 +800,15 @@ namespace EffectInfo
                     var skill_name = GetCombatSkillName(character.GetAffectingDefendSkillId());
                     var factor = isOutter ? addPenetrateResists.Outer : addPenetrateResists.Inner;
                     var value = GlobalConfig.Instance.DefendSkillBaseAddPenetrateResist
-                                    * defendSkill.GetPracticeLevel() / 100 
-                                    * defendSkill.GetPower() / 100 
+                                    //* defendSkill.GetPracticeLevel() / 100 
+                                    //* defendSkill.GetPower() / 100 
                                     * factor / 100;
                     var tmp = "";
                     tmp += ToInfoAdd("基础", GlobalConfig.Instance.DefendSkillBaseAddPenetrateResist, 2);
-                    if(defendSkill.GetPracticeLevel()!=100)
-                        tmp += ToInfoPercent("修习度", defendSkill.GetPracticeLevel(), 2);
-                    tmp += ToInfoPercent("威力", defendSkill.GetPower(), 2);
-                    tmp += ToInfoPercent("功法", factor, 2);
+                    tmp += ToInfoPercent(skill_name, factor, 2);
                     if(factor!=0)
                         tmp += GetCombatSkillAddFieldInfo(defendSkill, factor, peneFieldId[idx]).Item2;
-                    result += ToInfoAdd($"护体-{skill_name}", value,1)+tmp;
+                    result += ToInfoAdd($"护体", value,1)+tmp;
                     check_value += value;
                 }
             {
@@ -935,8 +937,8 @@ namespace EffectInfo
             }
             return result;
         }
-        [HarmonyPrefix, HarmonyPatch(typeof(CombatDomain), "CallMethod")]
-        public static bool CombatDomainCallMethodPatch(CombatDomain __instance,ref int __result,
+        [HarmonyPrefix, HarmonyPatch(typeof(TutorialChapterDomain), "CallMethod")]
+        public static bool CombatDomainCallMethodPatch(TutorialChapterDomain __instance,ref int __result,
                     Operation operation, RawDataPool argDataPool, RawDataPool returnDataPool, DataContext context)
         {
             if (!On)

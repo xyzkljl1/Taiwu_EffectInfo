@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 
 namespace EffectInfo
@@ -26,6 +27,7 @@ namespace EffectInfo
                 cover.SetAlpha(0f);
             }
             cover.raycastTarget = true;
+            cover.SetAllDirty();
             GetOrAddSimpleMouseTipDisplayer(gameObject);
         }
         public static MouseTipDisplayer GetOrAddSimpleMouseTipDisplayer(GameObject gameObject)
@@ -62,9 +64,9 @@ namespace EffectInfo
                 avoid_rect = ____dataCompare.CGet<RectTransform>("SelfHitTypeHolder");
             }
             //初始化，为了能让每条属性分别显示提示，将SelfHitTypeHolder设为rayCast=false,并在每个hitType上加上透明的CImage用于接受射线，并添加mouseTip
-            //以SelfHitTypeHolder是否可以接受射线为标志区分是否已经初始化
+            //不知道为什么，更改raycastTarget不会保留
             foreach (var holder in new RectTransform[]{hit_rect,avoid_rect })
-                if(holder.GetComponent<CImage>()&&holder.GetComponent<CImage>().raycastTarget)
+                if(holder.GetComponent<CImage>())
                 {
                     holder.GetComponent<CImage>().raycastTarget = false;
                     for(int i=0;i<holder.childCount;++i)
@@ -72,21 +74,19 @@ namespace EffectInfo
                 }
             var atkdefHolder = ____dataCompare.gameObject.transform.Find("OuterInnerHolder");
             //攻防同理
-            if (____dataCompare.CGet<GameObject>("SelfAttackTag").GetComponent<CImage>().raycastTarget)//攻守那两个字会挡射线
             {
-                UnityEngine.Debug.Log("EffectInfo:Init");
                 ____dataCompare.CGet<GameObject>("SelfAttackTag").GetComponent<CImage>().raycastTarget = false;
                 ____dataCompare.CGet<GameObject>("SelfDefendTag").GetComponent<CImage>().raycastTarget = false;
                 ____dataCompare.CGet<GameObject>("EnemyDefendTag").GetComponent<CImage>().raycastTarget = false;
                 ____dataCompare.CGet<GameObject>("EnemyDefendTag").GetComponent<CImage>().raycastTarget = false;
-                SetCover(atkdefHolder.Find("Outer").Find("SelfOuterDefendIcon").gameObject);
-                SetCover(atkdefHolder.Find("Outer").Find("SelfOuterAttackIcon").gameObject);
-                SetCover(atkdefHolder.Find("Outer").Find("EnemyOuterDefendIcon").gameObject);
-                SetCover(atkdefHolder.Find("Outer").Find("EnemyOuterAttackIcon").gameObject);
-                SetCover(atkdefHolder.Find("Inner").Find("SelfInnerDefendIcon").gameObject);
-                SetCover(atkdefHolder.Find("Inner").Find("SelfInnerAttackIcon").gameObject);
-                SetCover(atkdefHolder.Find("Inner").Find("EnemyInnerDefendIcon").gameObject);
-                SetCover(atkdefHolder.Find("Inner").Find("EnemyInnerAttackIcon").gameObject);
+                foreach(var transform in new Transform[] { atkdefHolder.Find("Outer").Find("SelfOuterName"),
+                                                            atkdefHolder.Find("Inner").Find("SelfInnerName"),
+                                                            atkdefHolder.Find("Outer").Find("EnemyOuterName"),
+                                                            atkdefHolder.Find("Inner").Find("EnemyInnerName")})
+                {
+                    transform.gameObject.GetComponent<TextMeshProUGUI>().raycastTarget=true;
+                    GetOrAddSimpleMouseTipDisplayer(transform.gameObject);
+                }
             }
             //顺序:3命中3闪避2攻击(外内)2防御
             //总是10个,不足的null占位
@@ -104,24 +104,23 @@ namespace EffectInfo
             while (mouseTips.Count < 6)
                 mouseTips.Add(null);
             //攻防
-            if (____damageCompareData.IsAlly)
-            {
-                mouseTips.Add(atkdefHolder.Find("Outer").Find("SelfOuterAttackIcon").GetComponent<MouseTipDisplayer>());
-                mouseTips.Add(atkdefHolder.Find("Inner").Find("SelfInnerAttackIcon").GetComponent<MouseTipDisplayer>());
-                mouseTips.Add(atkdefHolder.Find("Outer").Find("EnemyOuterDefendIcon").GetComponent<MouseTipDisplayer>());
-                mouseTips.Add(atkdefHolder.Find("Inner").Find("EnemyInnerDefendIcon").GetComponent<MouseTipDisplayer>());
-            }
+            if(____damageCompareData.IsAlly)
+                foreach (var transform in new Transform[] { atkdefHolder.Find("Outer").Find("SelfOuterName"),
+                                                            atkdefHolder.Find("Inner").Find("SelfInnerName"),
+                                                            atkdefHolder.Find("Outer").Find("EnemyOuterName"),
+                                                            atkdefHolder.Find("Inner").Find("EnemyInnerName")})
+                    mouseTips.Add(transform.GetComponent<MouseTipDisplayer>());
             else
-            {
-                mouseTips.Add(atkdefHolder.Find("Outer").Find("EnemyOuterAttackIcon").GetComponent<MouseTipDisplayer>());
-                mouseTips.Add(atkdefHolder.Find("Inner").Find("EnemyInnerAttackIcon").GetComponent<MouseTipDisplayer>());
-                mouseTips.Add(atkdefHolder.Find("Outer").Find("SelfOuterDefendIcon").GetComponent<MouseTipDisplayer>());
-                mouseTips.Add(atkdefHolder.Find("Inner").Find("SelfInnerDefendIcon").GetComponent<MouseTipDisplayer>());
-            }
+                foreach (var transform in new Transform[] { atkdefHolder.Find("Outer").Find("EnemyOuterName"),
+                                                            atkdefHolder.Find("Inner").Find("EnemyInnerName"),
+                                                            atkdefHolder.Find("Outer").Find("SelfOuterName"),
+                                                            atkdefHolder.Find("Inner").Find("SelfInnerName")})
+                    mouseTips.Add(transform.GetComponent<MouseTipDisplayer>());
+
 
             while (mouseTips.Count < 10)
                 mouseTips.Add(null);
-            __instance.AsynchMethodCall(MyDomainIds.Combat, MY_MAGIC_NUMBER_GetCombatCompareText, delegate (int offset, RawDataPool dataPool)
+            __instance.AsynchMethodCall(MyDomainIds.TutorialChapter, MY_MAGIC_NUMBER_GetCombatCompareText, delegate (int offset, RawDataPool dataPool)
             {
                 List<string> combatCompareText = new List<string>();
                 //顺序:3命中3闪避2攻击(外内)2防御

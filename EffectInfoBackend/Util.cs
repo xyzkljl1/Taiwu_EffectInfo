@@ -1144,27 +1144,54 @@ namespace EffectInfo
             if (levelabs > EffectInfoBackend.InfoLevel)
                 return "";
             string result = "";
-            if (levelabs == 1)
-                result += $"<color=#pinkyellow>·{title}\t\t\t\t\t\t{item}</color>\n";//align会改变整行
+			string colorTag = "<color=#pinkyellow>";
+			string colorTagEnd ="</color>";
+			if (Colorful)
+			{
+				var tmp = "";
+				var random = new Random();
+				foreach (var c in title)
+				{
+					var color = random.Next(0xffffff);
+					tmp += $"<color=#{color.ToString("x6")}>{c}</color>";
+				}
+				title = tmp;
+				tmp = "";
+				foreach (var c in item)
+				{
+					var color = random.Next(0xffffff);
+					tmp += $"<color=#{color.ToString("x6")}>{c}</color>";
+				}
+				item = tmp;
+				colorTag = "";
+				colorTagEnd = "";
+			}
+			else if (levelabs == 1)
+				colorTag = "<color=#pinkyellow>";
+			else
+				colorTag = "<color=#grey>";
+
+			if (levelabs == 1)
+                result += $"{colorTag}·{title}\t\t\t\t\t\t{item}{colorTagEnd}\n";//align会改变整行
             else if (levelabs == 2)
-                result += $"<color=#grey>\t·{title}\t\t\t\t\t{item}</color>\n";
+                result += $"{colorTag}\t·{title}\t\t\t\t\t{item}{colorTagEnd}\n";
 			else if (levelabs == 3)
             {
 				if (title.Length > 4)
-					result += $"<color=#grey>\t\t·{title}\t\t\t// {item}</color>\n";
+					result += $"{colorTag}\t\t·{title}\t\t\t// {item}{colorTagEnd}\n";
 				else if (title.Length > 8)
-					result += $"<color=#grey>\t\t·{title}\t\t// {item}</color>\n";
+					result += $"{colorTag}\t\t·{title}\t\t// {item}{colorTagEnd}\n";
 				else if (title.Length > 12)
-					result += $"<color=#grey>\t\t·{title}\t// {item}</color>\n";
+					result += $"{colorTag}\t\t·{title}\t// {item}{colorTagEnd}\n";
 				else if (title.Length > 16)
-					result += $"<color=#grey>\t\t·{title}// {item}</color>\n";
+					result += $"{colorTag}\t\t·{title}// {item}{colorTagEnd}\n";
 				else
-					result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";
+					result += $"{colorTag}\t\t·{title}\t\t\t\t// {item}{colorTagEnd}\n";
 			}
 			else if (levelabs == 4)
-				result += $"<color=#grey>\t\t\t·{title}\t\t\t\t//// {item}</color>\n";
+				result += $"{colorTag}\t\t\t·{title}\t\t\t\t//// {item}{colorTagEnd}\n";
 			else
-				result += $"<color=#grey>\t\t·{title}\t\t\t\t// {item}</color>\n";
+				result += $"{colorTag}\t\t·{title}\t\t\t\t// {item}{colorTagEnd}\n";
 			return result;
         }
 		unsafe static string ToInfoNote(string title, int infoLevel)

@@ -6,13 +6,13 @@ return {
 	{
 		[1] = "EffectInfoFrontend.dll"
 	},
-	Description = [[v2.01,对应游戏v0.0.35
+	Description = [[v2.04,对应游戏v0.0.43
 源代码：https://github.com/xyzkljl1/Taiwu_EffectInfo
 用于在人物/建筑/读书菜单部分数字的悬浮tips上显示数值详细信息，目前支持的：
 1.人物界面：右侧的全部属性、魅力(属性左侧魅力图标)、生育力(魅力上方年龄图标)
 2.建筑管理界面：资源(药材/金铁等)收入、经营进度、(部分建筑的)经营成功率及物品/招募概率
 3.读书界面：读书效率(画面中间上方书本描述)
-4.战斗界面：施放摧破时，画面中央上方的双方攻防与命中回避数值(在文字旁边的图标上)
+4.战斗界面：施放摧破时，画面中央上方的双方攻防与命中回避数值(在文字上)
 
 意见和提问请发到讨论区！！评论区无法单独回复
 该mod旨在解释数值的计算方式，需要显示各种隐藏属性的请去找隔壁的更多信息mod
@@ -94,7 +94,7 @@ C X10.0
 14.战斗界面的各项数值，有一些效果是经过代码计算，而非简单的加减乘除，这部分无法获知其具体计算过程
 因此显示为=>XX，表示经过该效果修正后，数值变为XX
 ]],
-	Title = "洞察~数值解析",
+	Title = [[<color=#E3170D>洞察</color>~<color=#228b22>数值</color><color=#4169e1>解</color><color=#8a2be2>析</color>]],
 	BackendPlugins = 
 	{
 		[1] = "EffectInfoBackend.dll"
@@ -127,8 +127,16 @@ C X10.0
 			SettingType = "Toggle",
 			DefaultValue = true,
 			Key = "ShowUseless"
+		},
+		[4] = 
+		{
+			DisplayName = "七彩虹",
+			Description = "让你的生活变得丰富多彩",
+			SettingType = "Toggle",
+			DefaultValue = false,
+			Key = "Colorful"
 		}
 	},
-	Version = "2.01",
+	Version = 4,
 	Author = "xyzkljl1"
 }

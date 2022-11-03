@@ -3,6 +3,7 @@ using GameData.Domains;
 using GameData.Domains.Building;
 using GameData.Domains.Character;
 using GameData.Domains.Item;
+using GameData.Domains.Item.Display;
 using GameData.Domains.Map;
 using GameData.Domains.Organization;
 using GameData.Domains.Organization.Display;
@@ -245,7 +246,7 @@ namespace EffectInfo
             BuildingBlockData blockData;
             if (__instance.TryGetElement_BuildingBlocks(blockKey, out blockData))
             {
-                //经营进度 SerialUpdate
+                //经营进度 SerialUpdate、OfflineUpdateShopManagement
                 var tmp = "";
                 Config.BuildingBlockItem config = Config.BuildingBlock.Instance[blockData.TemplateId];
                 bool use_max_combat_attainment = false;
@@ -302,15 +303,49 @@ namespace EffectInfo
                     //此处isAverage恒为false
                 }
                 tmp = ToInfoAdd("总造诣", check_value, -1)+tmp;
-                tmp += ToInfoDivision("建筑产出需求", config.MaxProduceValue, -1);
-                double double_check_value = (double)100.0 * (double)check_value / config.MaxProduceValue;
-                result = tmp + ToInfo("总合校验值", $"{double_check_value.ToString("f2")}%", -1);
-                //每回合最多收获一次且溢出轻灵，
-                if (check_value>0)
+                if(blockData.TemplateId==MyBuildingBlockDefKey.BookCollectionRoom)//藏书阁的总进度是按书计算
                 {
-                    shop_period = (config.MaxProduceValue+check_value-1) / check_value;//向上取整
-                    result +=  ToInfoNote("由于溢出进度不保留,效率会浪费一部分", -1)
-                             + ToInfoNote($"等效效率:{((double)100 / shop_period).ToString("f2")}%", -1);
+                    BuildingEarningsData earning_data=null;
+                    bool canFix = false;
+                    if(__instance.TryGetElement_CollectBuildingEarningsData(blockKey, out earning_data)
+                        &&earning_data!=null
+                        &&earning_data.FixBookInfoList.Count>0
+                        &&earning_data.FixBookInfoList[0].IsValid())
+                    {
+                        ItemKey itemKey = earning_data.FixBookInfoList[0];
+                        SkillBookPageDisplayData displyData = DomainManager.Item.GetSkillBookPagesInfo(itemKey);
+                        if (displyData.CanFix())
+                        {
+                            canFix = true;
+                            short needProgress = displyData.GetFixProgress().Item2;
+                            var grade=ItemTemplateHelper.GetGrade(itemKey.ItemType, itemKey.TemplateId);
+                            tmp += ToInfoDivision($"产出需求({9-grade}品)", needProgress, -1);
+                            double double_check_value = (double)100.0 * (double)check_value / needProgress;
+                            result = tmp + ToInfo("校验值(工作效率)", $"{double_check_value.ToString("f2")}%", -1);
+                            if (check_value > 0)
+                            {
+                                shop_period = (needProgress + check_value - 1) / check_value;//向上取整
+                                result += ToInfoNote("由于溢出进度不保留,效率会浪费一部分", -1)
+                                         + ToInfoNote($"等效效率:{((double)100 / shop_period).ToString("f2")}%", -1);
+                            }
+                        }
+                    }
+                    if(!canFix)
+                        result += tmp + ToInfo("校验值(工作效率)","-",-1)
+                                + ToInfoNote("和书的品级有关", -2);
+                }
+                else
+                {
+                    tmp += ToInfoDivision("建筑产出需求", config.MaxProduceValue, -1);
+                    double double_check_value = (double)100.0 * (double)check_value / config.MaxProduceValue;
+                    result = tmp + ToInfo("校验值(工作效率)", $"{double_check_value.ToString("f2")}%", -1);
+                    //每回合最多收获一次且溢出清灵
+                    if (check_value > 0)
+                    {
+                        shop_period = (config.MaxProduceValue + check_value - 1) / check_value;//向上取整
+                        result += ToInfoNote("由于溢出进度不保留,效率会浪费一部分", -1)
+                                 + ToInfoNote($"等效效率:{((double)100 / shop_period).ToString("f2")}%", -1);
+                    }
                 }
                 result += "\n";
                 //成功率和基础产出
