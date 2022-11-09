@@ -94,7 +94,7 @@ C X10.0
 14.战斗界面的各项数值，有一些效果是经过代码计算，而非简单的加减乘除，这部分无法获知其具体计算过程
 因此显示为=>XX，表示经过该效果修正后，数值变为XX
 ]],
-	Title = [[<color=#E3170D>洞察</color>~<color=#228b22>数值</color><color=#4169e1>解</color><color=#8a2be2>析</color>]],
+	Title = "<color=#E3170D>洞察</color>~<color=#228b22>数值</color><color=#4169e1>解</color><color=#8a2be2>析</color>",
 	BackendPlugins = 
 	{
 		[1] = "EffectInfoBackend.dll"
